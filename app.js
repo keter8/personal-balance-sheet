@@ -55,6 +55,7 @@ const els = {
   backupStatusText: $("#backupStatusText"),
   backupImportText: $("#backupImportText"),
   backupBadge: $("#backupBadge"),
+  clearLocalDataButton: $("#clearLocalDataButton"),
   allocationList: $("#allocationList"),
   limitDisclosure: $("#limitDisclosure"),
   snapshotList: $("#snapshotList"),
@@ -222,6 +223,30 @@ function markBackupCompleted(timestamp) {
   localStorage.setItem(BACKUP_STORAGE_KEY, timestamp);
   localStorage.setItem(BACKUP_NEEDED_STORAGE_KEY, "false");
   renderBackupStatus();
+}
+
+async function clearLocalData() {
+  const ok = confirm("這會刪除這台裝置瀏覽器裡的所有資產、負債、額度與月結紀錄。\n\n不會影響 GitHub、其他裝置，或你已經匯出的 JSON 備份。\n\n確定要繼續嗎？");
+  if (!ok) return;
+
+  const typed = prompt("請輸入 DELETE 確認清除本機資料。");
+  if (typed !== "DELETE") {
+    showToast("已取消清除");
+    return;
+  }
+
+  await clearStore(STORE_ENTRIES);
+  await clearStore(STORE_SNAPSHOTS);
+  localStorage.removeItem(BACKUP_STORAGE_KEY);
+  localStorage.removeItem(BACKUP_NEEDED_STORAGE_KEY);
+  localStorage.removeItem(IMPORTED_BACKUP_STORAGE_KEY);
+  state.entries = [];
+  state.snapshots = [];
+  state.showAllSnapshots = false;
+  resetForm();
+  resetSnapshotMonth();
+  await loadData();
+  showToast("已清除本機資料");
 }
 
 function updateCategoryOptions() {
@@ -998,6 +1023,7 @@ function bindEvents() {
   els.guideToggleButton.addEventListener("click", () => {
     setGuideOpen(els.guideBody.hidden);
   });
+  els.clearLocalDataButton.addEventListener("click", clearLocalData);
   els.snapshotButton.addEventListener("click", createSnapshot);
   els.refreshAllQuotesButton.addEventListener("click", refreshAllStockQuotes);
   els.clearSnapshotsButton.addEventListener("click", async () => {

@@ -199,6 +199,13 @@ h3 {
   font-weight: 900;
 }
 
+.backup-actions {
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
 .backup-badge.ok {
   background: rgba(27, 127, 92, 0.12);
   color: var(--asset);
@@ -870,6 +877,10 @@ textarea {
 
   .backup-panel {
     display: grid;
+  }
+
+  .backup-actions {
+    justify-items: stretch;
   }
 
   .summary-card {
