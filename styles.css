@@ -99,6 +99,7 @@ h3 {
 .topbar-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
 .icon-button {
@@ -114,9 +115,23 @@ h3 {
   cursor: pointer;
 }
 
+.icon-button.labeled {
+  width: auto;
+  min-width: 112px;
+  grid-template-columns: auto auto;
+  gap: 7px;
+  padding: 0 12px;
+}
+
 .icon-button span {
   font-size: 23px;
   line-height: 1;
+}
+
+.icon-button b {
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .summary-grid {
@@ -826,7 +841,17 @@ textarea {
   }
 
   .topbar {
-    align-items: flex-end;
+    align-items: flex-start;
+    display: grid;
+  }
+
+  .topbar-actions {
+    justify-content: stretch;
+  }
+
+  .icon-button.labeled {
+    min-width: 0;
+    flex: 1;
   }
 
   .guide-summary {

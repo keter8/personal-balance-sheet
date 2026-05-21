@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=20" />
+    <link rel="stylesheet" href="./styles.css?v=21" />
   </head>
   <body>
     <div class="app-shell">
@@ -24,11 +24,13 @@
           <button class="icon-button" id="installButton" type="button" title="加入主畫面" hidden>
             <span aria-hidden="true">+</span>
           </button>
-          <button class="icon-button" id="exportButton" type="button" title="匯出備份">
+          <button class="icon-button labeled" id="exportButton" type="button" title="匯出備份">
             <span aria-hidden="true">↓</span>
+            <b>匯出備份</b>
           </button>
-          <label class="icon-button" title="匯入備份">
+          <label class="icon-button labeled" title="匯入備份">
             <span aria-hidden="true">↑</span>
+            <b>匯入備份</b>
             <input id="importInput" type="file" accept="application/json" hidden />
           </label>
         </div>
@@ -246,6 +248,6 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=20" type="module"></script>
+    <script src="./app.js?v=21" type="module"></script>
   </body>
 </html>
