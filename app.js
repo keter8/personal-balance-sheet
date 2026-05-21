@@ -200,10 +200,13 @@ function renderBackupStatus() {
   const lastBackupAt = localStorage.getItem(BACKUP_STORAGE_KEY);
   const lastImportedExportedAt = localStorage.getItem(IMPORTED_BACKUP_STORAGE_KEY);
   const backupNeeded = localStorage.getItem(BACKUP_NEEDED_STORAGE_KEY) === "true";
+  const hasLocalData = state.entries.length > 0 || state.snapshots.length > 0;
   const elapsedDays = daysSince(lastBackupAt);
   const overdue = !lastBackupAt || elapsedDays > BACKUP_OVERDUE_DAYS;
 
-  if (!lastBackupAt) {
+  if (!hasLocalData && !lastBackupAt) {
+    els.backupStatusText.textContent = "目前沒有本機資料。先新增第一筆資料，或用「匯入備份」恢復資料後，再匯出 JSON 備份。";
+  } else if (!lastBackupAt) {
     els.backupStatusText.textContent = "尚未匯出備份。月結後建議立刻匯出 JSON，存到 iCloud Drive、Google Drive 或 Dropbox。";
   } else {
     els.backupStatusText.textContent = `上次匯出：${formatDateTime(lastBackupAt)}${elapsedDays > 0 ? `，約 ${elapsedDays} 天前` : "，今天"}`;
@@ -213,10 +216,12 @@ function renderBackupStatus() {
     ? `最近匯入的備份匯出時間：${formatDateTime(lastImportedExportedAt)}`
     : "尚未匯入備份檔。";
 
-  els.backupPanel.classList.toggle("danger", overdue);
-  els.backupPanel.classList.toggle("warning", !overdue && backupNeeded);
-  els.backupBadge.className = `backup-badge ${overdue ? "danger" : backupNeeded ? "warning" : "ok"}`;
-  els.backupBadge.textContent = overdue ? "備份逾期" : backupNeeded ? "月結後待備份" : "備份正常";
+  const idle = !hasLocalData && !lastBackupAt;
+  els.backupPanel.classList.toggle("idle", idle);
+  els.backupPanel.classList.toggle("danger", !idle && overdue);
+  els.backupPanel.classList.toggle("warning", !idle && !overdue && backupNeeded);
+  els.backupBadge.className = `backup-badge ${idle ? "idle" : overdue ? "danger" : backupNeeded ? "warning" : "ok"}`;
+  els.backupBadge.textContent = idle ? "尚無資料" : overdue ? "備份逾期" : backupNeeded ? "月結後待備份" : "備份正常";
 }
 
 function markBackupNeeded() {

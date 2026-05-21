@@ -172,6 +172,10 @@ h3 {
   border-left-color: var(--liability);
 }
 
+.backup-panel.idle {
+  border-left-color: var(--line);
+}
+
 .backup-copy {
   display: grid;
   gap: 5px;
@@ -219,6 +223,11 @@ h3 {
 .backup-badge.danger {
   background: rgba(185, 69, 53, 0.12);
   color: var(--liability);
+}
+
+.backup-badge.idle {
+  background: var(--soft);
+  color: var(--muted);
 }
 
 .guide-summary {
