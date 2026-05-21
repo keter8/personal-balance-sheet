@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=22" />
+    <link rel="stylesheet" href="./styles.css?v=23" />
   </head>
   <body>
     <div class="app-shell">
@@ -26,17 +26,17 @@
           </button>
           <button class="icon-button labeled" id="exportButton" type="button" title="匯出備份">
             <svg aria-hidden="true" viewBox="0 0 24 24">
-              <path d="M12 3v11" />
-              <path d="m7 10 5 5 5-5" />
-              <path d="M5 19h14" />
+              <path d="M5 13v6h14v-6" />
+              <path d="M12 15V4" />
+              <path d="m7 9 5-5 5 5" />
             </svg>
             <b>匯出備份</b>
           </button>
           <label class="icon-button labeled" title="匯入備份">
             <svg aria-hidden="true" viewBox="0 0 24 24">
-              <path d="M12 21V10" />
-              <path d="m7 14 5-5 5 5" />
-              <path d="M5 5h14" />
+              <path d="M5 13v6h14v-6" />
+              <path d="M12 4v11" />
+              <path d="m7 10 5 5 5-5" />
             </svg>
             <b>匯入備份</b>
             <input id="importInput" type="file" accept="application/json" hidden />
@@ -256,6 +256,6 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=22" type="module"></script>
+    <script src="./app.js?v=23" type="module"></script>
   </body>
 </html>
