@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f6f3ed" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="財務簿" />
+    <title>財務簿</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/icon.svg" />
+    <link rel="stylesheet" href="./styles.css?v=19" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Local-first Finance</p>
+          <h1>財務簿</h1>
+          <p class="app-subtitle">這不是每日記帳工具，而是每月盤點資產、負債、額度與淨資產的資產月報。</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" id="installButton" type="button" title="加入主畫面" hidden>
+            <span aria-hidden="true">+</span>
+          </button>
+          <button class="icon-button" id="exportButton" type="button" title="匯出備份">
+            <span aria-hidden="true">↓</span>
+          </button>
+          <label class="icon-button" title="匯入備份">
+            <span aria-hidden="true">↑</span>
+            <input id="importInput" type="file" accept="application/json" hidden />
+          </label>
+        </div>
+      </header>
+
+      <main>
+        <section class="summary-grid" aria-label="總覽">
+          <article class="summary-card primary">
+            <span>淨資產</span>
+            <strong id="netWorth">NT$0</strong>
+          </article>
+          <article class="summary-card">
+            <span>總資產</span>
+            <strong id="totalAssets">NT$0</strong>
+          </article>
+          <article class="summary-card">
+            <span>總負債</span>
+            <strong id="totalLiabilities">NT$0</strong>
+          </article>
+          <article class="summary-card">
+            <span>可動用額度</span>
+            <strong id="totalLimits">NT$0</strong>
+          </article>
+        </section>
+
+        <section id="guidePanel" class="panel guide-panel" aria-label="使用說明">
+          <div class="guide-summary">
+            <div>
+              <h2>每月怎麼用</h2>
+              <p>月底或月初對帳一次，整理當下的資產負債表，再建立月結追蹤趨勢。</p>
+            </div>
+            <button id="guideToggleButton" class="text-button" type="button" aria-expanded="false">使用說明</button>
+          </div>
+
+          <div id="guideBody" class="guide-body" hidden>
+            <ol class="guide-steps">
+              <li>
+                <strong>更新現金、銀行、貸款餘額</strong>
+                <span>把目前真正存在的錢、未還的貸款、可動用額度更新成最新狀態。</span>
+              </li>
+              <li>
+                <strong>更新股價</strong>
+                <span>按「更新股價」刷新股票市值；個別股票也可以在編輯時抓現價。</span>
+              </li>
+              <li>
+                <strong>選擇月結月份並建立月結</strong>
+                <span>股票會用所選月份最後交易日收盤價重算；非股票項目使用目前畫面金額。</span>
+              </li>
+              <li>
+                <strong>匯出備份</strong>
+                <span>資料只存在這台裝置的瀏覽器裡，月結後順手匯出 JSON 備份最安心。</span>
+              </li>
+            </ol>
+
+            <div class="guide-notes">
+              <article>
+                <h3>這不是記帳</h3>
+                <p>不記早餐、交通、刷卡明細；只記某個時間點的資產、負債與額度。</p>
+              </article>
+              <article>
+                <h3>月結看趨勢</h3>
+                <p>月結增減額是跟時間上前一筆月結比較，用來觀察淨資產是否穩定成長。</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="workspace">
+          <aside class="panel input-panel" aria-label="新增紀錄">
+            <div class="panel-heading">
+              <h2>新增項目</h2>
+              <button id="clearFormButton" class="text-button" type="button">清空</button>
+            </div>
+
+            <form id="entryForm" class="entry-form">
+              <input id="entryId" type="hidden" />
+              <label>
+                類型
+                <select id="entryType" required>
+                  <option value="asset">資產</option>
+                  <option value="liability">負債</option>
+                  <option value="limit">額度</option>
+                </select>
+              </label>
+
+              <label>
+                分類
+                <select id="entryCategory" required></select>
+              </label>
+
+              <label id="entryNameField">
+                名稱
+                <input id="entryName" required placeholder="例如：台新 Richart、元大證券、房貸" />
+              </label>
+
+              <label>
+                金額
+                <input id="entryAmount" required type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" />
+              </label>
+
+              <div id="stockFields" class="stock-fields" hidden>
+                <div class="form-grid">
+                  <label>
+                    股票代號
+                    <input id="stockSymbol" inputmode="numeric" pattern="[0-9A-Za-z]+" placeholder="例如：2330" />
+                  </label>
+
+                  <label>
+                    股數
+                    <input id="stockShares" type="number" inputmode="decimal" min="0" step="1" placeholder="1000" />
+                  </label>
+                </div>
+
+                <div class="quote-row">
+                  <label>
+                    現價
+                    <input id="stockPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="連網後可自動抓取" />
+                  </label>
+                  <button id="fetchQuoteButton" class="text-button quote-button" type="button">抓現價</button>
+                </div>
+
+                <p id="quoteStatus" class="quote-status">股票市值會用股數 × 現價自動換算。</p>
+              </div>
+
+              <label>
+                幣別
+                <select id="entryCurrency">
+                  <option value="TWD">TWD</option>
+                  <option value="USD">USD</option>
+                  <option value="JPY">JPY</option>
+                  <option value="EUR">EUR</option>
+                  <option value="CNY">CNY</option>
+                  <option value="HKD">HKD</option>
+                </select>
+              </label>
+
+              <label>
+                估值日期
+                <input id="entryDate" type="date" required />
+              </label>
+
+              <label>
+                備註
+                <textarea id="entryNote" rows="3" placeholder="可記股票代號、利率、銀行分行、還款日等"></textarea>
+              </label>
+
+              <p id="limitHint" class="form-hint" hidden>額度只記錄可動用上限，不列入淨資產，也不列入負債。</p>
+
+              <button class="primary-button" type="submit">儲存項目</button>
+            </form>
+          </aside>
+
+          <section class="panel records-panel" aria-label="紀錄列表">
+            <div class="panel-heading">
+              <div>
+                <h2>資產與負債</h2>
+                <p id="lastUpdated">尚未建立資料</p>
+              </div>
+              <div class="panel-actions">
+                <button id="refreshAllQuotesButton" class="text-button" type="button">更新股價</button>
+                <label class="month-picker">
+                  月結月份
+                  <input id="snapshotMonth" type="month" />
+                </label>
+                <button id="snapshotButton" class="text-button" type="button">建立月結</button>
+              </div>
+            </div>
+
+            <div class="toolbar" role="tablist" aria-label="篩選紀錄">
+              <button class="chip active" type="button" data-filter="all">全部</button>
+              <button class="chip" type="button" data-filter="asset">資產</button>
+              <button class="chip" type="button" data-filter="liability">負債</button>
+              <button class="chip" type="button" data-filter="limit">額度</button>
+            </div>
+
+            <div id="emptyState" class="empty-state">
+              <strong>先放入第一筆資料</strong>
+              <span>可以從銀行餘額、證券戶現金、股票市值或貸款金額開始。</span>
+            </div>
+
+            <div id="entryList" class="entry-list"></div>
+          </section>
+        </section>
+
+        <section class="insights">
+          <article class="panel">
+            <div class="panel-heading">
+              <h2>資產配置</h2>
+            </div>
+            <div id="allocationList" class="allocation-list"></div>
+            <div id="limitDisclosure" class="limit-disclosure" hidden></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <h2>月結紀錄</h2>
+              <button id="clearSnapshotsButton" class="text-button danger" type="button">清除</button>
+            </div>
+            <p class="snapshot-note">股票用所選月份最後交易日收盤價重算；非股票項目使用目前畫面金額；增減額是跟上一筆月結比較。</p>
+            <div id="trendChart" class="trend-chart" aria-label="月結趨勢圖"></div>
+            <div id="snapshotList" class="snapshot-list"></div>
+            <button id="toggleSnapshotsButton" class="text-button snapshot-toggle" type="button" hidden>顯示更多</button>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js?v=19" type="module"></script>
+  </body>
+</html>

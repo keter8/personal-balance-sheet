@@ -1,0 +1,17 @@
+{
+  "name": "財務簿",
+  "short_name": "財務簿",
+  "description": "本機優先的個人財務紀錄 App",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f3ed",
+  "theme_color": "#f6f3ed",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
