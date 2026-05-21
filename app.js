@@ -154,6 +154,11 @@ function currentMonth() {
   return today().slice(0, 7);
 }
 
+function timestampForFilename(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
+}
+
 function uid(prefix) {
   return `${prefix}-${crypto.randomUUID()}`;
 }
@@ -959,7 +964,7 @@ function downloadJson(filename, payload) {
 
 function exportData() {
   const exportedAt = new Date().toISOString();
-  downloadJson(`finance-ledger-${today()}.json`, {
+  downloadJson(`finance-ledger-${timestampForFilename(new Date(exportedAt))}.json`, {
     app: "finance-ledger",
     schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt,
