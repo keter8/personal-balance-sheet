@@ -11,6 +11,8 @@ Local-first personal balance sheet PWA for monthly asset, liability, credit-limi
 
 This is not a daily expense tracker. Data is stored locally in the browser with IndexedDB. Do not commit exported backup JSON files because they contain personal financial data.
 
+The app tracks the last export time locally and reminds you to back up after monthly close or when the last backup is more than 30 days old.
+
 ## Deploy With GitHub Pages
 
 Repository settings:

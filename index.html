@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=19" />
+    <link rel="stylesheet" href="./styles.css?v=20" />
   </head>
   <body>
     <div class="app-shell">
@@ -94,6 +94,15 @@
               </article>
             </div>
           </div>
+        </section>
+
+        <section id="backupPanel" class="panel backup-panel" aria-label="備份狀態">
+          <div class="backup-copy">
+            <h2>備份狀態</h2>
+            <p id="backupStatusText">尚未匯出備份。</p>
+            <p id="backupImportText" class="backup-muted">尚未匯入備份檔。</p>
+          </div>
+          <div id="backupBadge" class="backup-badge warning">建議備份</div>
         </section>
 
         <section class="workspace">
@@ -237,6 +246,6 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=19" type="module"></script>
+    <script src="./app.js?v=20" type="module"></script>
   </body>
 </html>

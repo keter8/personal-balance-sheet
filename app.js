@@ -3,6 +3,11 @@ const DB_VERSION = 1;
 const STORE_ENTRIES = "entries";
 const STORE_SNAPSHOTS = "snapshots";
 const GUIDE_STORAGE_KEY = "finance-ledger-guide-open";
+const BACKUP_STORAGE_KEY = "finance-ledger-last-backup-at";
+const BACKUP_NEEDED_STORAGE_KEY = "finance-ledger-backup-needed";
+const IMPORTED_BACKUP_STORAGE_KEY = "finance-ledger-last-imported-exported-at";
+const BACKUP_SCHEMA_VERSION = 1;
+const BACKUP_OVERDUE_DAYS = 30;
 
 const assetCategories = ["現金", "銀行餘額", "證券戶現金", "股票市值", "基金/ETF", "外幣", "保單", "其他資產"];
 const liabilityCategories = ["房貸", "信貸", "車貸", "信用卡", "私人借款", "其他負債"];
@@ -46,6 +51,10 @@ const els = {
   guidePanel: $("#guidePanel"),
   guideBody: $("#guideBody"),
   guideToggleButton: $("#guideToggleButton"),
+  backupPanel: $("#backupPanel"),
+  backupStatusText: $("#backupStatusText"),
+  backupImportText: $("#backupImportText"),
+  backupBadge: $("#backupBadge"),
   allocationList: $("#allocationList"),
   limitDisclosure: $("#limitDisclosure"),
   snapshotList: $("#snapshotList"),
@@ -166,6 +175,53 @@ function setGuideOpen(open, persist = true) {
   if (persist) {
     localStorage.setItem(GUIDE_STORAGE_KEY, open ? "true" : "false");
   }
+}
+
+function formatDateTime(value) {
+  if (!value) return "未知";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "未知";
+  return date.toLocaleString("zh-TW");
+}
+
+function daysSince(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return Infinity;
+  return Math.floor((Date.now() - date.getTime()) / 86400000);
+}
+
+function renderBackupStatus() {
+  const lastBackupAt = localStorage.getItem(BACKUP_STORAGE_KEY);
+  const lastImportedExportedAt = localStorage.getItem(IMPORTED_BACKUP_STORAGE_KEY);
+  const backupNeeded = localStorage.getItem(BACKUP_NEEDED_STORAGE_KEY) === "true";
+  const elapsedDays = daysSince(lastBackupAt);
+  const overdue = !lastBackupAt || elapsedDays > BACKUP_OVERDUE_DAYS;
+
+  if (!lastBackupAt) {
+    els.backupStatusText.textContent = "尚未匯出備份。月結後建議立刻匯出 JSON，存到 iCloud Drive、Google Drive 或 Dropbox。";
+  } else {
+    els.backupStatusText.textContent = `上次匯出：${formatDateTime(lastBackupAt)}${elapsedDays > 0 ? `，約 ${elapsedDays} 天前` : "，今天"}`;
+  }
+
+  els.backupImportText.textContent = lastImportedExportedAt
+    ? `最近匯入的備份匯出時間：${formatDateTime(lastImportedExportedAt)}`
+    : "尚未匯入備份檔。";
+
+  els.backupPanel.classList.toggle("danger", overdue);
+  els.backupPanel.classList.toggle("warning", !overdue && backupNeeded);
+  els.backupBadge.className = `backup-badge ${overdue ? "danger" : backupNeeded ? "warning" : "ok"}`;
+  els.backupBadge.textContent = overdue ? "備份逾期" : backupNeeded ? "月結後待備份" : "備份正常";
+}
+
+function markBackupNeeded() {
+  localStorage.setItem(BACKUP_NEEDED_STORAGE_KEY, "true");
+  renderBackupStatus();
+}
+
+function markBackupCompleted(timestamp) {
+  localStorage.setItem(BACKUP_STORAGE_KEY, timestamp);
+  localStorage.setItem(BACKUP_NEEDED_STORAGE_KEY, "false");
+  renderBackupStatus();
 }
 
 function updateCategoryOptions() {
@@ -493,6 +549,7 @@ function render() {
   renderEntries();
   renderAllocation();
   renderSnapshots();
+  renderBackupStatus();
 }
 
 function escapeHtml(value) {
@@ -818,8 +875,9 @@ async function createSnapshot() {
   await putItem(STORE_SNAPSHOTS, snapshot);
   els.snapshotButton.disabled = false;
   els.snapshotButton.textContent = originalText;
+  markBackupNeeded();
   await loadData();
-  showToast(totals.stockQuoteFailed ? `已儲存 ${month} 月結，${totals.stockQuoteFailed} 筆股票沿用目前價格` : `已儲存 ${month} 月結`);
+  showToast(totals.stockQuoteFailed ? `已儲存 ${month} 月結，建議匯出備份` : `月結已建立，建議現在匯出備份`);
 }
 
 async function refreshAllStockQuotes() {
@@ -875,12 +933,15 @@ function downloadJson(filename, payload) {
 }
 
 function exportData() {
+  const exportedAt = new Date().toISOString();
   downloadJson(`finance-ledger-${today()}.json`, {
     app: "finance-ledger",
-    exportedAt: new Date().toISOString(),
+    schemaVersion: BACKUP_SCHEMA_VERSION,
+    exportedAt,
     entries: state.entries,
     snapshots: state.snapshots,
   });
+  markBackupCompleted(exportedAt);
   showToast("已匯出備份");
 }
 
@@ -891,12 +952,32 @@ async function importData(file) {
     throw new Error("Invalid backup");
   }
 
+  const exportedAt = data.exportedAt || null;
+  const ok = confirm(
+    [
+      "匯入備份會覆蓋目前這台裝置的所有本機資料。",
+      "",
+      `備份匯出時間：${formatDateTime(exportedAt)}`,
+      `項目數：${data.entries.length}`,
+      `月結數：${data.snapshots.length}`,
+      `備份版本：${data.schemaVersion || "舊版"}`,
+      "",
+      "確定要繼續匯入嗎？",
+    ].join("\n")
+  );
+  if (!ok) return false;
+
   await clearStore(STORE_ENTRIES);
   await clearStore(STORE_SNAPSHOTS);
   for (const entry of data.entries) await putItem(STORE_ENTRIES, normalizeEntry(entry));
   for (const snapshot of data.snapshots) await putItem(STORE_SNAPSHOTS, normalizeSnapshot(snapshot));
+  if (exportedAt) {
+    localStorage.setItem(IMPORTED_BACKUP_STORAGE_KEY, exportedAt);
+  }
+  localStorage.setItem(BACKUP_NEEDED_STORAGE_KEY, "false");
   await loadData();
   showToast("已匯入備份");
+  return true;
 }
 
 function bindEvents() {
