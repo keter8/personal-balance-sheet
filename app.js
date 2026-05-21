@@ -407,23 +407,46 @@ function formatPrice(value) {
 
 function renderAllocation() {
   const assets = state.entries.filter((entry) => entry.type === "asset");
+  const liabilities = state.entries.filter((entry) => entry.type === "liability");
+  const limits = state.entries.filter((entry) => entry.type === "limit");
   const total = assets.reduce((sum, entry) => sum + Number(entry.amount), 0);
-  const totalLimits = state.entries
-    .filter((entry) => entry.type === "limit")
-    .reduce((sum, entry) => sum + Number(entry.amount), 0);
+  const totalLiabilities = liabilities.reduce((sum, entry) => sum + Number(entry.amount), 0);
+  const totalLimits = limits.reduce((sum, entry) => sum + Number(entry.amount), 0);
   const grouped = assets.reduce((map, entry) => {
     map.set(entry.category, (map.get(entry.category) || 0) + Number(entry.amount));
     return map;
   }, new Map());
+  const maxTypeAmount = Math.max(total, totalLiabilities, totalLimits, 1);
 
-  renderLimitDisclosure(totalLimits);
+  els.limitDisclosure.hidden = true;
+  els.limitDisclosure.innerHTML = "";
 
-  if (!total) {
-    els.allocationList.innerHTML = `<div class="empty-state"><strong>尚無資產配置</strong><span>新增資產後會自動整理比例。</span></div>`;
+  if (!state.entries.length) {
+    els.allocationList.innerHTML = `<div class="empty-state"><strong>尚無配置資料</strong><span>新增資產、負債或額度後會自動整理。</span></div>`;
     return;
   }
 
-  els.allocationList.innerHTML = Array.from(grouped.entries())
+  const typeRows = [
+    { label: "資產", note: "列入淨資產", amount: total, className: "asset", signed: false },
+    { label: "負債", note: "自資產扣除", amount: totalLiabilities, className: "liability", signed: true },
+    { label: "額度", note: "不列入淨資產", amount: totalLimits, className: "limit", signed: false },
+  ];
+  const typeOverview = typeRows
+    .map((row) => {
+      const percent = Math.round((row.amount / maxTypeAmount) * 100);
+      return `
+        <div class="allocation-row allocation-row-${row.className}">
+          <div class="allocation-top">
+            <span>${row.label}<small>${row.note}</small></span>
+            <span>${row.signed && row.amount > 0 ? "-" : ""}${formatMoney(row.amount)}</span>
+          </div>
+          <div class="bar"><span style="width: ${percent}%"></span></div>
+        </div>
+      `;
+    })
+    .join("");
+  const assetMix = total
+    ? Array.from(grouped.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([category, amount]) => {
       const percent = Math.round((amount / total) * 100);
@@ -437,7 +460,19 @@ function renderAllocation() {
         </div>
       `;
     })
-    .join("");
+      .join("")
+    : `<div class="allocation-empty-note">尚未建立資產項目。</div>`;
+
+  els.allocationList.innerHTML = `
+    <div class="allocation-section">
+      <div class="allocation-section-label">三大類</div>
+      ${typeOverview}
+    </div>
+    <div class="allocation-section">
+      <div class="allocation-section-label">資產分類</div>
+      ${assetMix}
+    </div>
+  `;
 }
 
 function renderLimitDisclosure(totalLimits) {

@@ -622,6 +622,23 @@ textarea {
   gap: 10px;
 }
 
+.allocation-section {
+  display: grid;
+  gap: 10px;
+}
+
+.allocation-section + .allocation-section {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.allocation-section-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .snapshot-list {
   max-height: 420px;
   overflow: auto;
@@ -738,6 +755,31 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.allocation-top small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.allocation-row-asset .bar span {
+  background: var(--asset);
+}
+
+.allocation-row-liability .bar span {
+  background: var(--liability);
+}
+
+.allocation-row-limit .bar span {
+  background: var(--limit);
+}
+
+.allocation-empty-note {
   color: var(--muted);
   font-size: 13px;
   font-weight: 800;
