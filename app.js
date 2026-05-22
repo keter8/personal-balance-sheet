@@ -16,9 +16,33 @@ const BACKUP_OVERDUE_DAYS = 30;
 const ENTRY_STALE_DAYS = 30;
 const STOCK_QUOTE_STALE_DAYS = 7;
 
-const assetCategories = ["現金", "銀行餘額", "證券戶現金", "股票市值", "基金/ETF", "外幣", "保單", "其他資產"];
+const assetCategories = ["現金", "銀行餘額", "證券戶現金", "股票市值", "基金/ETF", "房地產", "外幣", "保單", "其他資產"];
 const liabilityCategories = ["房貸", "信貸", "車貸", "信用卡", "私人借款", "其他負債"];
 const limitCategories = ["理財型房貸額度", "信用卡額度", "信貸額度", "其他額度"];
+const realEstateCities = [
+  ["臺北市", "A"],
+  ["新北市", "F"],
+  ["桃園市", "H"],
+  ["臺中市", "B"],
+  ["臺南市", "D"],
+  ["高雄市", "E"],
+  ["基隆市", "C"],
+  ["新竹市", "O"],
+  ["新竹縣", "J"],
+  ["苗栗縣", "K"],
+  ["彰化縣", "N"],
+  ["南投縣", "M"],
+  ["雲林縣", "P"],
+  ["嘉義市", "I"],
+  ["嘉義縣", "Q"],
+  ["屏東縣", "T"],
+  ["宜蘭縣", "G"],
+  ["花蓮縣", "U"],
+  ["臺東縣", "V"],
+  ["澎湖縣", "X"],
+  ["金門縣", "W"],
+];
+const PING_TO_SQUARE_METER = 3.305785;
 
 const $ = (selector) => document.querySelector(selector);
 const state = {
@@ -52,6 +76,14 @@ const els = {
   stockPrice: $("#stockPrice"),
   fetchQuoteButton: $("#fetchQuoteButton"),
   quoteStatus: $("#quoteStatus"),
+  realEstateFields: $("#realEstateFields"),
+  realEstateCity: $("#realEstateCity"),
+  realEstateDistrict: $("#realEstateDistrict"),
+  realEstateArea: $("#realEstateArea"),
+  realEstateMortgage: $("#realEstateMortgage"),
+  fetchRealEstateEstimateButton: $("#fetchRealEstateEstimateButton"),
+  applyRealEstateEstimateButton: $("#applyRealEstateEstimateButton"),
+  realEstateEstimateStatus: $("#realEstateEstimateStatus"),
   toggleEntryFormButton: $("#toggleEntryFormButton"),
   clearFormButton: $("#clearFormButton"),
   netWorth: $("#netWorth"),
@@ -473,6 +505,7 @@ function updateCategoryOptions() {
   }
   updateCashFields();
   updateStockFields();
+  updateRealEstateFields();
   updateLimitHint();
 }
 
@@ -503,6 +536,10 @@ function isStockEntry() {
   return els.entryType.value === "asset" && els.entryCategory.value === "股票市值";
 }
 
+function isRealEstateEntry() {
+  return els.entryType.value === "asset" && els.entryCategory.value === "房地產";
+}
+
 function updateLimitHint() {
   els.limitHint.hidden = els.entryType.value !== "limit";
 }
@@ -517,6 +554,48 @@ function updateStockFields() {
   if (!enabled) {
     els.quoteStatus.textContent = "股票市值會用股數 × 現價自動換算。";
   }
+}
+
+function setupRealEstateOptions() {
+  els.realEstateCity.innerHTML = realEstateCities.map(([city]) => `<option value="${city}">${city}</option>`).join("");
+}
+
+function syncRealEstateMortgageOptions(selectedId = "") {
+  const mortgages = state.entries.filter((entry) => entry.type === "liability" && entry.category === "房貸");
+  els.realEstateMortgage.innerHTML = [
+    `<option value="">不連動房貸</option>`,
+    ...mortgages.map((entry) => `<option value="${entry.id}">${escapeHtml(entry.name)} · ${formatMoney(Number(entry.amount))}</option>`),
+  ].join("");
+  if (selectedId && mortgages.some((entry) => entry.id === selectedId)) {
+    els.realEstateMortgage.value = selectedId;
+  }
+}
+
+function updateRealEstateFields() {
+  const enabled = isRealEstateEntry();
+  els.realEstateFields.hidden = !enabled;
+  els.realEstateCity.required = enabled;
+  els.realEstateDistrict.required = enabled;
+  els.realEstateArea.required = enabled;
+  els.realEstateDistrict.disabled = !enabled;
+  els.realEstateArea.disabled = !enabled;
+  els.realEstateMortgage.disabled = !enabled;
+  els.fetchRealEstateEstimateButton.disabled = !enabled;
+  if (enabled) {
+    syncRealEstateMortgageOptions(els.realEstateMortgage.value);
+  } else {
+    clearRealEstateEstimate();
+  }
+}
+
+function clearRealEstateEstimate() {
+  els.applyRealEstateEstimateButton.disabled = true;
+  delete els.applyRealEstateEstimateButton.dataset.amount;
+  delete els.applyRealEstateEstimateButton.dataset.confidence;
+  delete els.applyRealEstateEstimateButton.dataset.sampleCount;
+  delete els.applyRealEstateEstimateButton.dataset.period;
+  delete els.applyRealEstateEstimateButton.dataset.medianUnitPrice;
+  els.realEstateEstimateStatus.textContent = "此為參考估值，不代表即時成交價或鑑價結果；房產估值需由你確認後才會套用。";
 }
 
 function updateStockMarketValue() {
@@ -539,6 +618,11 @@ function resetForm() {
   els.stockShares.value = "";
   els.stockPrice.value = "";
   els.quoteStatus.textContent = "股票市值會用股數 × 現價自動換算。";
+  els.realEstateDistrict.value = "";
+  els.realEstateArea.value = "";
+  els.realEstateMortgage.value = "";
+  clearRealEstateEstimate();
+  updateRealEstateFields();
 }
 
 function resetSnapshotMonth() {
@@ -602,11 +686,14 @@ function renderEntries() {
   els.toggleEntriesButton.textContent = state.showAllEntries ? "收合清單" : `顯示全部 ${entries.length} 筆`;
   els.entryList.innerHTML = visibleEntries
     .map(
-      (entry) => `
+      (entry) => {
+        const realEstateDetails = renderRealEstateDetails(entry);
+        return `
         <article class="entry-row ${entry.type}">
           <div class="entry-main">
             <strong>${escapeHtml(entry.name)}</strong>
             <span>${entry.category} · ${entry.date}${entry.stock ? ` · ${escapeHtml(entry.stock.symbol)} · ${formatShares(entry.stock.shares)} 股 · 現價 ${formatPrice(entry.stock.price)}` : ""}${entry.note ? ` · ${escapeHtml(entry.note)}` : ""}</span>
+            ${realEstateDetails}
           </div>
           <div class="entry-amount">${entry.type === "liability" ? "-" : ""}${formatMoney(Number(entry.amount), entry.currency)}</div>
           <div class="row-actions">
@@ -614,9 +701,33 @@ function renderEntries() {
             <button type="button" data-action="delete" data-id="${entry.id}" title="刪除">×</button>
           </div>
         </article>
-      `
+      `;
+      }
     )
       .join("");
+}
+
+function getLinkedLiability(entry) {
+  const linkedId = entry.realEstate?.linkedLiabilityId;
+  if (!linkedId) return null;
+  return state.entries.find((item) => item.id === linkedId && item.type === "liability") || null;
+}
+
+function renderRealEstateDetails(entry) {
+  if (!entry.realEstate) return "";
+  const mortgage = getLinkedLiability(entry);
+  const mortgageAmount = mortgage ? Number(mortgage.amount) || 0 : 0;
+  const equity = Number(entry.amount) - mortgageAmount;
+  const method = entry.realEstate.valuationMethod || "手動輸入";
+  const confidence = entry.realEstate.confidence || "低";
+  return `
+    <div class="real-estate-detail">
+      <span>房產總值 ${formatMoney(Number(entry.amount))}</span>
+      <span>房貸 ${mortgage ? `-${formatMoney(mortgageAmount)}` : "未連動"}</span>
+      <span>房產淨值 ${formatMoney(equity)}</span>
+      <span>${escapeHtml(entry.realEstate.city || "")}${escapeHtml(entry.realEstate.district || "")} · ${formatPrice(entry.realEstate.buildingAreaPing)} 坪 · ${method} · 信心 ${confidence}</span>
+    </div>
+  `;
 }
 
 function formatShares(value) {
@@ -1024,6 +1135,30 @@ async function handleSubmit(event) {
         exchange: els.quoteStatus.dataset.exchange || null,
       }
     : null;
+  const appliedRealEstateEstimateAmount = Number(els.applyRealEstateEstimateButton.dataset.amount);
+  const usesReferenceEstimate =
+    appliedRealEstateEstimateAmount > 0 && appliedRealEstateEstimateAmount === Math.round(Number(els.entryAmount.value));
+  const realEstate = isRealEstateEntry()
+    ? {
+        city: els.realEstateCity.value,
+        district: els.realEstateDistrict.value.trim(),
+        buildingAreaPing: Number(els.realEstateArea.value),
+        valuationMethod: usesReferenceEstimate ? "實價登錄參考" : "手動輸入",
+        confidence: usesReferenceEstimate ? els.applyRealEstateEstimateButton.dataset.confidence || "低" : "低",
+        linkedLiabilityId: els.realEstateMortgage.value || null,
+        estimate: usesReferenceEstimate
+          ? {
+              amount: appliedRealEstateEstimateAmount,
+              confidence: els.applyRealEstateEstimateButton.dataset.confidence || "低",
+              sampleCount: Number(els.applyRealEstateEstimateButton.dataset.sampleCount) || 0,
+              period: els.applyRealEstateEstimateButton.dataset.period || "",
+              medianUnitPrice: Number(els.applyRealEstateEstimateButton.dataset.medianUnitPrice) || 0,
+              source: "內政部實價登錄 Open Data",
+              fetchedAt: new Date().toISOString(),
+            }
+          : null,
+      }
+    : null;
   const entry = normalizeEntry({
     id: els.entryId.value || uid("entry"),
     type: els.entryType.value,
@@ -1034,12 +1169,14 @@ async function handleSubmit(event) {
     date: els.entryDate.value,
     note: els.entryNote.value.trim(),
     stock,
+    realEstate,
     createdAt: els.entryId.value ? state.entries.find((item) => item.id === els.entryId.value)?.createdAt || now : now,
     updatedAt: now,
   });
 
   if (!entry.name || Number.isNaN(entry.amount)) return;
   if (stock && (!stock.symbol || !(stock.shares > 0) || !(stock.price > 0))) return;
+  if (realEstate && (!realEstate.city || !realEstate.district || !(realEstate.buildingAreaPing > 0))) return;
 
   await putItem(STORE_ENTRIES, entry);
   resetForm();
@@ -1058,6 +1195,7 @@ function editEntry(id) {
   els.entryCategory.value = entry.category;
   updateCashFields();
   updateStockFields();
+  updateRealEstateFields();
   els.entryName.value = isCashEntry() ? "現金" : entry.name;
   els.entryAmount.value = entry.amount;
   els.entryCurrency.value = entry.currency;
@@ -1071,6 +1209,14 @@ function editEntry(id) {
   els.quoteStatus.textContent = entry.stock?.priceUpdatedAt
     ? `現價更新：${new Date(entry.stock.priceUpdatedAt).toLocaleString("zh-TW")}`
     : "股票市值會用股數 × 現價自動換算。";
+  els.realEstateCity.value = entry.realEstate?.city || realEstateCities[0][0];
+  els.realEstateDistrict.value = entry.realEstate?.district || "";
+  els.realEstateArea.value = entry.realEstate?.buildingAreaPing || "";
+  syncRealEstateMortgageOptions(entry.realEstate?.linkedLiabilityId || "");
+  clearRealEstateEstimate();
+  if (entry.realEstate?.estimate) {
+    els.realEstateEstimateStatus.textContent = `已保存參考估值 ${formatMoney(entry.realEstate.estimate.amount)}，樣本 ${entry.realEstate.estimate.sampleCount || 0} 筆。`;
+  }
   if (isCashEntry()) {
     els.entryAmount.focus();
   } else {
@@ -1166,6 +1312,31 @@ async function fetchJsonWithProxyFallback(sourceUrl, validator) {
   throw new Error("History unavailable");
 }
 
+async function fetchTextWithProxyFallback(sourceUrl) {
+  const attempts = [
+    { url: sourceUrl, source: "direct" },
+    { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(sourceUrl)}`, source: "proxy" },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+      const response = await fetch(attempt.url, { cache: "no-store", signal: controller.signal });
+      window.clearTimeout(timeoutId);
+      if (!response.ok) continue;
+      const text = await response.text();
+      if (text.includes("鄉鎮市區") && text.includes("總價元")) {
+        return { text, source: attempt.source };
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error("Text unavailable");
+}
+
 function monthToHistoryDate(month) {
   return `${month.replace("-", "")}01`;
 }
@@ -1205,6 +1376,178 @@ async function fetchHistoricalStockClose(symbol, month) {
   }
 
   throw new Error("History unavailable");
+}
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  const cleanText = text.replace(/^\uFEFF/, "");
+
+  for (let index = 0; index < cleanText.length; index += 1) {
+    const char = cleanText[index];
+    const nextChar = cleanText[index + 1];
+    if (char === '"' && quoted && nextChar === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(cell);
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && nextChar === "\n") index += 1;
+      row.push(cell);
+      if (row.some((item) => item !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+
+  if (cell || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function parseMinguoDate(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length < 7) return null;
+  const year = Number(digits.slice(0, 3)) + 1911;
+  const month = Number(digits.slice(3, 5));
+  const day = Number(digits.slice(5, 7));
+  if (!year || !month || !day) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function median(values) {
+  if (!values.length) return 0;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function confidenceForSampleCount(count) {
+  if (count >= 20) return "高";
+  if (count >= 5) return "中";
+  return "低";
+}
+
+async function fetchRealEstateReferenceEstimate({ city, district, buildingAreaPing }) {
+  const cityCode = realEstateCities.find(([name]) => name === city)?.[1];
+  if (!cityCode || !district || !(buildingAreaPing > 0)) throw new Error("Missing real estate inputs");
+
+  const sourceUrl = `https://plvr.land.moi.gov.tw/Download?fileName=${cityCode}_lvr_land_A.csv`;
+  const { text, source } = await fetchTextWithProxyFallback(sourceUrl);
+  const rows = parseCsvRows(text);
+  const headers = rows[0] || [];
+  const records = rows.slice(2);
+  const indexOf = (name) => headers.indexOf(name);
+  const districtIndex = indexOf("鄉鎮市區");
+  const targetIndex = indexOf("交易標的");
+  const dateIndex = indexOf("交易年月日");
+  const typeIndex = indexOf("建物型態");
+  const useIndex = indexOf("主要用途");
+  const areaIndex = indexOf("建物移轉總面積平方公尺");
+  const priceIndex = indexOf("總價元");
+  const unitPriceIndex = indexOf("單價元平方公尺");
+  const noteIndex = indexOf("備註");
+
+  const samples = records
+    .map((row) => {
+      const unitPricePerSquareMeter = Number(row[unitPriceIndex]);
+      const totalPrice = Number(row[priceIndex]);
+      const buildingArea = Number(row[areaIndex]);
+      const note = row[noteIndex] || "";
+      const date = parseMinguoDate(row[dateIndex]);
+      return {
+        district: row[districtIndex],
+        target: row[targetIndex] || "",
+        buildingType: row[typeIndex] || "",
+        use: row[useIndex] || "",
+        unitPricePerSquareMeter,
+        totalPrice,
+        buildingArea,
+        note,
+        date,
+      };
+    })
+    .filter((row) => {
+      if (row.district !== district) return false;
+      if (!row.target.includes("房地")) return false;
+      if (row.target.includes("車位") && !row.target.includes("建物")) return false;
+      if (!(row.unitPricePerSquareMeter > 0) || !(row.totalPrice > 0) || !(row.buildingArea > 0)) return false;
+      if (row.note.includes("特殊") || row.note.includes("親友") || row.note.includes("僅車位")) return false;
+      return row.use.includes("住") || row.buildingType.includes("住宅") || row.buildingType.includes("公寓") || row.buildingType.includes("華廈");
+    });
+
+  if (!samples.length) throw new Error("No samples");
+
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const recentSamples = samples.filter((sample) => !sample.date || new Date(sample.date) >= oneYearAgo);
+  const estimateSamples = recentSamples.length ? recentSamples : samples;
+  const unitPricePerSquareMeter = Math.round(median(estimateSamples.map((sample) => sample.unitPricePerSquareMeter)));
+  const medianUnitPricePerPing = Math.round(unitPricePerSquareMeter * PING_TO_SQUARE_METER);
+  const amount = Math.round(medianUnitPricePerPing * buildingAreaPing);
+  const dates = estimateSamples.map((sample) => sample.date).filter(Boolean).sort();
+  const period = dates.length ? `${dates[0]} ~ ${dates.at(-1)}` : "本期公開資料";
+
+  return {
+    amount,
+    sampleCount: estimateSamples.length,
+    period,
+    medianUnitPricePerPing,
+    confidence: confidenceForSampleCount(estimateSamples.length),
+    source,
+  };
+}
+
+async function fetchRealEstateEstimate() {
+  if (!isRealEstateEntry()) return;
+  const city = els.realEstateCity.value;
+  const district = els.realEstateDistrict.value.trim();
+  const buildingAreaPing = Number(els.realEstateArea.value);
+  if (!city || !district || !(buildingAreaPing > 0)) {
+    showToast("請先輸入縣市、行政區與建物坪數");
+    return;
+  }
+
+  els.fetchRealEstateEstimateButton.disabled = true;
+  const originalText = els.fetchRealEstateEstimateButton.textContent;
+  els.fetchRealEstateEstimateButton.textContent = "估算中...";
+  clearRealEstateEstimate();
+  try {
+    const estimate = await fetchRealEstateReferenceEstimate({ city, district, buildingAreaPing });
+    els.applyRealEstateEstimateButton.disabled = false;
+    els.applyRealEstateEstimateButton.dataset.amount = String(estimate.amount);
+    els.applyRealEstateEstimateButton.dataset.confidence = estimate.confidence;
+    els.applyRealEstateEstimateButton.dataset.sampleCount = String(estimate.sampleCount);
+    els.applyRealEstateEstimateButton.dataset.period = estimate.period;
+    els.applyRealEstateEstimateButton.dataset.medianUnitPrice = String(estimate.medianUnitPricePerPing);
+    els.realEstateEstimateStatus.textContent = `參考估值 ${formatMoney(estimate.amount)}；每坪中位數 ${formatMoney(estimate.medianUnitPricePerPing)}；樣本 ${estimate.sampleCount} 筆；期間 ${estimate.period}；信心 ${estimate.confidence}。此為參考估值，不代表即時成交價或鑑價結果。`;
+    showToast("已取得參考估值");
+  } catch {
+    clearRealEstateEstimate();
+    els.realEstateEstimateStatus.textContent = "無法取得線上參考資料，請先手動輸入估值。";
+    showToast("無法取得線上參考資料");
+  } finally {
+    els.fetchRealEstateEstimateButton.disabled = false;
+    els.fetchRealEstateEstimateButton.textContent = originalText;
+  }
+}
+
+function applyRealEstateEstimate() {
+  const amount = Number(els.applyRealEstateEstimateButton.dataset.amount);
+  if (!(amount > 0)) return;
+  els.entryAmount.value = String(amount);
+  els.realEstateEstimateStatus.textContent = `已套用參考估值 ${formatMoney(amount)}；房產估值需儲存後才會更新。`;
+  showToast("已套用參考估值，請儲存項目");
 }
 
 async function getMonthlyCloseTotals(month) {
@@ -1576,14 +1919,24 @@ function bindEvents() {
   els.entryCategory.addEventListener("change", () => {
     updateCashFields();
     updateStockFields();
+    updateRealEstateFields();
     updateLimitHint();
   });
   els.stockShares.addEventListener("input", updateStockMarketValue);
   els.stockPrice.addEventListener("input", updateStockMarketValue);
+  els.entryAmount.addEventListener("input", () => {
+    if (isRealEstateEntry()) clearRealEstateEstimate();
+  });
   els.stockSymbol.addEventListener("change", () => {
     els.stockSymbol.value = normalizeSymbol(els.stockSymbol.value);
   });
   els.fetchQuoteButton.addEventListener("click", refreshQuote);
+  [els.realEstateCity, els.realEstateDistrict, els.realEstateArea].forEach((element) => {
+    element.addEventListener("input", clearRealEstateEstimate);
+    element.addEventListener("change", clearRealEstateEstimate);
+  });
+  els.fetchRealEstateEstimateButton.addEventListener("click", fetchRealEstateEstimate);
+  els.applyRealEstateEstimateButton.addEventListener("click", applyRealEstateEstimate);
   els.form.addEventListener("submit", handleSubmit);
   els.toggleEntryFormButton.addEventListener("click", () => {
     setEntryFormOpen(els.form.hidden);
@@ -1690,6 +2043,7 @@ async function registerServiceWorker() {
   }
 }
 
+setupRealEstateOptions();
 updateCategoryOptions();
 resetForm();
 resetSnapshotMonth();

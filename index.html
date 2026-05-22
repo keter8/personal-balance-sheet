@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=45" />
+    <link rel="stylesheet" href="./styles.css?v=46" />
   </head>
   <body>
     <div class="app-shell">
@@ -138,6 +138,39 @@
                 </div>
 
                 <p id="quoteStatus" class="quote-status">股票市值會用股數 × 現價自動換算。</p>
+              </div>
+
+              <div id="realEstateFields" class="real-estate-fields" hidden>
+                <div class="form-grid">
+                  <label>
+                    縣市
+                    <select id="realEstateCity"></select>
+                  </label>
+
+                  <label>
+                    行政區
+                    <input id="realEstateDistrict" placeholder="例如：板橋區" />
+                  </label>
+                </div>
+
+                <div class="form-grid">
+                  <label>
+                    建物坪數
+                    <input id="realEstateArea" type="number" inputmode="decimal" min="0" step="0.01" placeholder="30" />
+                  </label>
+
+                  <label>
+                    連動房貸
+                    <select id="realEstateMortgage"></select>
+                  </label>
+                </div>
+
+                <div class="estimate-actions">
+                  <button id="fetchRealEstateEstimateButton" class="text-button" type="button">參考實價登錄估值</button>
+                  <button id="applyRealEstateEstimateButton" class="text-button" type="button" disabled>套用參考估值</button>
+                </div>
+
+                <p id="realEstateEstimateStatus" class="quote-status">此為參考估值，不代表即時成交價或鑑價結果；房產估值需由你確認後才會套用。</p>
               </div>
 
               <label>
@@ -282,6 +315,6 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=45" type="module"></script>
+    <script src="./app.js?v=46" type="module"></script>
   </body>
 </html>
