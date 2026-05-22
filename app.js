@@ -254,6 +254,27 @@ function daysSince(value) {
   return Math.floor((Date.now() - date.getTime()) / 86400000);
 }
 
+function timestampValue(value) {
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function getLocalUpdatedAt() {
+  const times = [
+    ...state.entries.map((entry) => timestampValue(entry.updatedAt || entry.createdAt)),
+    ...state.snapshots.map((snapshot) => timestampValue(snapshot.createdAt || snapshot.date)),
+  ];
+  const latest = Math.max(0, ...times);
+  return latest > 0 ? new Date(latest).toISOString() : null;
+}
+
+function hasUnbackedLocalChanges() {
+  const localUpdatedAt = getLocalUpdatedAt();
+  if (!localUpdatedAt) return false;
+  const lastBackupAt = localStorage.getItem(BACKUP_STORAGE_KEY);
+  return timestampValue(lastBackupAt) < timestampValue(localUpdatedAt);
+}
+
 function renderBackupStatus() {
   const lastBackupAt = localStorage.getItem(BACKUP_STORAGE_KEY);
   const lastImportedExportedAt = localStorage.getItem(IMPORTED_BACKUP_STORAGE_KEY);
@@ -1105,6 +1126,7 @@ function exportData() {
     app: "finance-ledger",
     schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt,
+    localUpdatedAt: getLocalUpdatedAt(),
     entries: state.entries,
     snapshots: state.snapshots,
   });
@@ -1120,11 +1142,23 @@ async function importData(file) {
   }
 
   const exportedAt = data.exportedAt || null;
+  const localUpdatedAt = getLocalUpdatedAt();
+  if (hasUnbackedLocalChanges()) {
+    showToast("目前本機資料尚未備份，請先匯出備份後再匯入");
+    return false;
+  }
+
   const ok = confirm(
     [
       "匯入備份會覆蓋目前這台裝置的所有本機資料。",
       "",
-      `備份匯出時間：${formatDateTime(exportedAt)}`,
+      "目前本機資料",
+      `項目數：${state.entries.length}`,
+      `月結數：${state.snapshots.length}`,
+      `最後變更：${formatDateTime(localUpdatedAt)}`,
+      "",
+      "備份檔內容",
+      `匯出時間：${formatDateTime(exportedAt)}`,
       `項目數：${data.entries.length}`,
       `月結數：${data.snapshots.length}`,
       `備份版本：${data.schemaVersion || "舊版"}`,
@@ -1141,9 +1175,9 @@ async function importData(file) {
   if (exportedAt) {
     localStorage.setItem(IMPORTED_BACKUP_STORAGE_KEY, exportedAt);
   }
-  localStorage.setItem(BACKUP_NEEDED_STORAGE_KEY, "false");
+  localStorage.setItem(BACKUP_NEEDED_STORAGE_KEY, "true");
   await loadData();
-  showToast("已匯入備份");
+  showToast("已匯入備份，建議再匯出一次備份");
   return true;
 }
 
