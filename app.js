@@ -370,6 +370,16 @@ function renderSummary() {
     .sort()
     .at(-1);
   els.lastUpdated.textContent = latest ? `最後更新：${new Date(latest).toLocaleString("zh-TW")}` : "尚未建立資料";
+  updateRecordActions();
+}
+
+function updateRecordActions() {
+  const hasEntries = state.entries.length > 0;
+  const hasStocks = state.entries.some((entry) => entry.stock?.symbol && entry.stock?.shares > 0);
+  els.snapshotButton.disabled = !hasEntries;
+  els.snapshotButton.title = hasEntries ? "建立月結" : "請先新增至少一筆資料";
+  els.refreshAllQuotesButton.disabled = !hasStocks;
+  els.refreshAllQuotesButton.title = hasStocks ? "更新所有股票現價" : "目前沒有股票項目";
 }
 
 function renderEntries() {
@@ -936,6 +946,11 @@ async function refreshQuote() {
 }
 
 async function createSnapshot() {
+  if (!state.entries.length) {
+    showToast("請先新增至少一筆資料再建立月結");
+    return;
+  }
+
   const month = els.snapshotMonth.value || currentMonth();
   els.snapshotButton.disabled = true;
   const originalText = els.snapshotButton.textContent;
