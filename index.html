@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=40" />
+    <link rel="stylesheet" href="./styles.css?v=41" />
   </head>
   <body>
     <div class="app-shell">
@@ -209,6 +209,7 @@
             </div>
             <p class="snapshot-note">股票用所選月份最後交易日收盤價重算；非股票項目使用目前畫面金額；增減額是跟上一筆月結比較。</p>
             <div id="trendChart" class="trend-chart" aria-label="月結趨勢圖"></div>
+            <div id="snapshotInsight" class="snapshot-insight"></div>
             <div id="snapshotList" class="snapshot-list"></div>
             <button id="toggleSnapshotsButton" class="text-button snapshot-toggle" type="button" hidden>顯示更多</button>
           </article>
@@ -271,6 +272,6 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=40" type="module"></script>
+    <script src="./app.js?v=41" type="module"></script>
   </body>
 </html>

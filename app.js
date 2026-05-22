@@ -70,6 +70,7 @@ const els = {
   snapshotList: $("#snapshotList"),
   toggleSnapshotsButton: $("#toggleSnapshotsButton"),
   trendChart: $("#trendChart"),
+  snapshotInsight: $("#snapshotInsight"),
   snapshotMonth: $("#snapshotMonth"),
   snapshotButton: $("#snapshotButton"),
   refreshAllQuotesButton: $("#refreshAllQuotesButton"),
@@ -580,6 +581,20 @@ function renderAllocationSection(label, entries, total, className, signed) {
   `;
 }
 
+function addBreakdownAmount(breakdown, category, amount) {
+  const key = category || "未分類";
+  breakdown[key] = (Number(breakdown[key]) || 0) + (Number(amount) || 0);
+}
+
+function normalizeBreakdown(breakdown) {
+  if (!breakdown || typeof breakdown !== "object" || Array.isArray(breakdown)) return {};
+  return Object.fromEntries(
+    Object.entries(breakdown)
+      .map(([category, amount]) => [category, Number(amount) || 0])
+      .filter(([, amount]) => amount !== 0)
+  );
+}
+
 function renderLimitDisclosure(totalLimits) {
   els.limitDisclosure.hidden = totalLimits <= 0;
   if (totalLimits <= 0) {
@@ -599,6 +614,7 @@ function renderLimitDisclosure(totalLimits) {
 function renderSnapshots() {
   if (!state.snapshots.length) {
     renderTrendChart([]);
+    renderSnapshotInsight([]);
     els.toggleSnapshotsButton.hidden = true;
     els.snapshotList.innerHTML = `<div class="empty-state"><strong>還沒有月結</strong><span>每月對帳後建立一筆，用來追蹤淨資產變化。</span></div>`;
     return;
@@ -606,6 +622,7 @@ function renderSnapshots() {
 
   const snapshots = state.snapshots.slice().map(normalizeSnapshot).sort((a, b) => a.month.localeCompare(b.month));
   renderTrendChart(snapshots);
+  renderSnapshotInsight(snapshots);
   const reversedSnapshots = snapshots.slice().reverse();
   const visibleSnapshots = state.showAllSnapshots ? reversedSnapshots : reversedSnapshots.slice(0, SNAPSHOT_PREVIEW_LIMIT);
   els.toggleSnapshotsButton.hidden = snapshots.length <= SNAPSHOT_PREVIEW_LIMIT;
@@ -636,6 +653,105 @@ function renderSnapshots() {
       `;
     })
     .join("");
+}
+
+function renderSnapshotInsight(snapshots) {
+  if (!els.snapshotInsight) return;
+  if (snapshots.length < 2) {
+    els.snapshotInsight.innerHTML = `
+      <section class="snapshot-insight-card snapshot-insight-empty">
+        <strong>最新月結洞察</strong>
+        <span>至少兩筆月結後顯示差異分析。</span>
+      </section>
+    `;
+    return;
+  }
+
+  const current = snapshots.at(-1);
+  const previous = snapshots.at(-2);
+  const netWorthDelta = current.netWorth - previous.netWorth;
+  const hasBreakdowns = current.hasBreakdowns && previous.hasBreakdowns;
+
+  if (!hasBreakdowns) {
+    els.snapshotInsight.innerHTML = `
+      <section class="snapshot-insight-card">
+        <div class="snapshot-insight-head">
+          <div>
+            <strong>最新月結洞察</strong>
+            <span>${current.month} vs ${previous.month}</span>
+          </div>
+          <span class="snapshot-delta ${netWorthDelta >= 0 ? "positive" : "negative"}">${netWorthDelta >= 0 ? "+" : ""}${formatMoney(netWorthDelta)}</span>
+        </div>
+        <p>舊月結缺少分類快照，因此目前只顯示總額差異。之後建立的新月結會自動保存分類資料。</p>
+      </section>
+    `;
+    return;
+  }
+
+  const contributionRows = [
+    ...diffBreakdown(current.assetBreakdown, previous.assetBreakdown, "asset"),
+    ...diffBreakdown(current.liabilityBreakdown, previous.liabilityBreakdown, "liability"),
+  ]
+    .filter((row) => row.impact !== 0)
+    .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))
+    .slice(0, 5);
+  const limitRows = diffBreakdown(current.limitBreakdown, previous.limitBreakdown, "limit")
+    .filter((row) => row.amount !== 0)
+    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+    .slice(0, 3);
+
+  els.snapshotInsight.innerHTML = `
+    <section class="snapshot-insight-card">
+      <div class="snapshot-insight-head">
+        <div>
+          <strong>最新月結洞察</strong>
+          <span>${current.month} vs ${previous.month}</span>
+        </div>
+        <span class="snapshot-delta ${netWorthDelta >= 0 ? "positive" : "negative"}">${netWorthDelta >= 0 ? "+" : ""}${formatMoney(netWorthDelta)}</span>
+      </div>
+      <div class="insight-grid">
+        <div>
+          <h3>主要貢獻</h3>
+          ${renderInsightRows(contributionRows, "分類金額沒有明顯變化。", true)}
+        </div>
+        <div>
+          <h3>額度變化</h3>
+          ${renderInsightRows(limitRows, "額度沒有變化。", false)}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderInsightRows(rows, emptyText, useImpact) {
+  if (!rows.length) return `<p class="insight-empty">${emptyText}</p>`;
+  return `
+    <ul class="insight-list">
+      ${rows
+        .map((row) => {
+          const value = useImpact ? row.impact : row.amount;
+          const valueClass = value >= 0 ? "positive" : "negative";
+          const prefix = value >= 0 ? "+" : "";
+          return `
+            <li>
+              <span><small>${row.typeLabel}</small>${escapeHtml(row.category)}</span>
+              <strong class="${valueClass}">${prefix}${formatMoney(value)}</strong>
+            </li>
+          `;
+        })
+        .join("")}
+    </ul>
+  `;
+}
+
+function diffBreakdown(current, previous, type) {
+  const categories = new Set([...Object.keys(current || {}), ...Object.keys(previous || {})]);
+  const typeLabel = type === "asset" ? "資產" : type === "liability" ? "負債" : "額度";
+  return Array.from(categories).map((category) => {
+    const amount = (Number(current?.[category]) || 0) - (Number(previous?.[category]) || 0);
+    const impact = type === "liability" ? -amount : amount;
+    return { category, amount, impact, type, typeLabel };
+  });
 }
 
 function getEntryPreviewLimit() {
@@ -709,6 +825,8 @@ function formatCompactMoney(value) {
 
 function normalizeSnapshot(snapshot) {
   const month = snapshot.month || snapshot.date?.slice(0, 7) || currentMonth();
+  const hasBreakdowns =
+    snapshot.hasBreakdowns === false ? false : Boolean(snapshot.assetBreakdown && snapshot.liabilityBreakdown && snapshot.limitBreakdown);
   return {
     ...snapshot,
     id: snapshot.id || `snapshot-${month}`,
@@ -720,6 +838,10 @@ function normalizeSnapshot(snapshot) {
     stockQuoteTotal: Number(snapshot.stockQuoteTotal) || 0,
     stockQuoteResolved: Number(snapshot.stockQuoteResolved) || 0,
     stockQuoteFailed: Number(snapshot.stockQuoteFailed) || 0,
+    assetBreakdown: normalizeBreakdown(snapshot.assetBreakdown),
+    liabilityBreakdown: normalizeBreakdown(snapshot.liabilityBreakdown),
+    limitBreakdown: normalizeBreakdown(snapshot.limitBreakdown),
+    hasBreakdowns,
   };
 }
 
@@ -963,15 +1085,20 @@ async function getMonthlyCloseTotals(month) {
   let stockQuoteTotal = 0;
   let stockQuoteResolved = 0;
   let stockQuoteFailed = 0;
+  const assetBreakdown = {};
+  const liabilityBreakdown = {};
+  const limitBreakdown = {};
 
   for (const entry of state.entries) {
     const amount = Number(entry.amount) || 0;
     if (entry.type === "liability") {
       totalLiabilities += amount;
+      addBreakdownAmount(liabilityBreakdown, entry.category, amount);
       continue;
     }
     if (entry.type === "limit") {
       totalLimits += amount;
+      addBreakdownAmount(limitBreakdown, entry.category, amount);
       continue;
     }
     if (entry.type !== "asset") continue;
@@ -984,16 +1111,20 @@ async function getMonthlyCloseTotals(month) {
         if (!isComparableHistoricalPrice(history.price, currentPrice)) {
           throw new Error("Possible split or reverse split");
         }
-        totalAssets += Math.round(Number(entry.stock.shares) * history.price);
+        const historicalAmount = Math.round(Number(entry.stock.shares) * history.price);
+        totalAssets += historicalAmount;
+        addBreakdownAmount(assetBreakdown, entry.category, historicalAmount);
         stockQuoteResolved += 1;
       } catch {
         totalAssets += amount;
+        addBreakdownAmount(assetBreakdown, entry.category, amount);
         stockQuoteFailed += 1;
       }
       continue;
     }
 
     totalAssets += amount;
+    addBreakdownAmount(assetBreakdown, entry.category, amount);
   }
 
   return {
@@ -1001,6 +1132,9 @@ async function getMonthlyCloseTotals(month) {
     totalLiabilities,
     totalLimits,
     netWorth: totalAssets - totalLiabilities,
+    assetBreakdown,
+    liabilityBreakdown,
+    limitBreakdown,
     stockQuoteTotal,
     stockQuoteResolved,
     stockQuoteFailed,
@@ -1055,6 +1189,10 @@ async function createSnapshot() {
     totalLiabilities: totals.totalLiabilities,
     totalLimits: totals.totalLimits,
     netWorth: totals.netWorth,
+    assetBreakdown: totals.assetBreakdown,
+    liabilityBreakdown: totals.liabilityBreakdown,
+    limitBreakdown: totals.limitBreakdown,
+    hasBreakdowns: true,
     stockQuoteTotal: totals.stockQuoteTotal,
     stockQuoteResolved: totals.stockQuoteResolved,
     stockQuoteFailed: totals.stockQuoteFailed,

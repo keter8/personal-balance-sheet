@@ -899,6 +899,117 @@ textarea {
   line-height: 1.45;
 }
 
+.snapshot-insight {
+  margin-bottom: 14px;
+}
+
+.snapshot-insight-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8f1e6;
+}
+
+.snapshot-insight-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.snapshot-insight-empty {
+  color: var(--muted);
+}
+
+.snapshot-insight-empty strong {
+  color: var(--ink);
+}
+
+.snapshot-insight-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.snapshot-insight-head div {
+  display: grid;
+  gap: 4px;
+}
+
+.snapshot-insight-head strong {
+  font-size: 16px;
+}
+
+.snapshot-insight-head span:not(.snapshot-delta) {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.insight-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.insight-grid h3 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.insight-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.insight-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.insight-list span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-weight: 900;
+}
+
+.insight-list small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.insight-list strong {
+  flex: 0 0 auto;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.insight-list strong.positive {
+  color: var(--asset);
+}
+
+.insight-list strong.negative {
+  color: var(--liability);
+}
+
+.insight-empty {
+  margin: 0;
+}
+
 .bar {
   height: 10px;
   border-radius: 999px;
@@ -1110,6 +1221,19 @@ textarea {
   }
 
   .snapshot-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .snapshot-insight-head,
+  .insight-list li {
+    align-items: flex-start;
+  }
+
+  .snapshot-insight-head {
+    display: grid;
+  }
+
+  .insight-grid {
     grid-template-columns: 1fr;
   }
 }
