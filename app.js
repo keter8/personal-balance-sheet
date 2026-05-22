@@ -773,16 +773,16 @@ function renderRealEstateDetails(entry) {
   const mortgage = getLinkedLiability(entry);
   const mortgageAmount = mortgage ? Number(mortgage.amount) || 0 : 0;
   const equity = Number(entry.amount) - mortgageAmount;
-  const method = entry.realEstate.valuationMethod || "手動輸入";
-  const confidence = entry.realEstate.confidence || "低";
   const estimate = entry.realEstate.estimate;
+  const method = estimate ? "實價登錄參考" : entry.realEstate.valuationMethod || "手動輸入";
+  const confidence = estimate?.confidence || entry.realEstate.confidence || "低";
   return `
     <div class="real-estate-detail">
       <span>房產總值 ${formatMoney(Number(entry.amount))}</span>
       <span>連動負債 ${mortgage ? `-${formatMoney(mortgageAmount)}` : "未連動"}</span>
       <span>房產淨值 ${formatMoney(equity)}</span>
       <span>${escapeHtml(entry.realEstate.city || "")}${escapeHtml(entry.realEstate.district || "")}${entry.realEstate.street ? ` · ${escapeHtml(entry.realEstate.street)}` : ""} · ${formatPrice(entry.realEstate.buildingAreaPing)} 坪 · ${method} · 信心 ${confidence}</span>
-      ${estimate ? `<span>參考估值 ${formatMoney(estimate.amount)} · ${escapeHtml(estimate.scope || "行政區")} · ${estimate.sampleCount || 0} 筆</span>` : ""}
+      ${estimate ? `<span>參考估值 ${formatMoney(estimate.amount)} · ${escapeHtml(estimate.scope || "行政區")} · ${estimate.sampleCount || 0} 筆 · 信心 ${escapeHtml(estimate.confidence || "低")}</span>` : ""}
     </div>
   `;
 }
