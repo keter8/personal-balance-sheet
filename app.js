@@ -10,6 +10,8 @@ const BACKUP_NEEDED_STORAGE_KEY = "finance-ledger-backup-needed";
 const IMPORTED_BACKUP_STORAGE_KEY = "finance-ledger-last-imported-exported-at";
 const BACKUP_SCHEMA_VERSION = 1;
 const BACKUP_OVERDUE_DAYS = 30;
+const ENTRY_STALE_DAYS = 30;
+const STOCK_QUOTE_STALE_DAYS = 7;
 
 const assetCategories = ["現金", "銀行餘額", "證券戶現金", "股票市值", "基金/ETF", "外幣", "保單", "其他資產"];
 const liabilityCategories = ["房貸", "信貸", "車貸", "信用卡", "私人借款", "其他負債"];
@@ -54,6 +56,8 @@ const els = {
   totalLiabilities: $("#totalLiabilities"),
   totalLimits: $("#totalLimits"),
   lastUpdated: $("#lastUpdated"),
+  healthPanel: $("#healthPanel"),
+  healthList: $("#healthList"),
   entryList: $("#entryList"),
   toggleEntriesButton: $("#toggleEntriesButton"),
   emptyState: $("#emptyState"),
@@ -304,15 +308,133 @@ function renderBackupStatus() {
   els.backupBadge.textContent = idle ? "尚無資料" : overdue ? "備份逾期" : backupNeeded ? "月結後待備份" : "備份正常";
 }
 
+function getBackupHealthStatus() {
+  const lastBackupAt = localStorage.getItem(BACKUP_STORAGE_KEY);
+  const backupNeeded = localStorage.getItem(BACKUP_NEEDED_STORAGE_KEY) === "true";
+  const hasLocalData = state.entries.length > 0 || state.snapshots.length > 0;
+  const overdue = !lastBackupAt || daysSince(lastBackupAt) > BACKUP_OVERDUE_DAYS;
+  if (!hasLocalData) return null;
+  if (overdue) {
+    return {
+      status: "danger",
+      title: "備份逾期",
+      description: lastBackupAt ? `上次匯出已超過 ${BACKUP_OVERDUE_DAYS} 天。` : "這台裝置尚未匯出過備份。",
+      actionHint: "匯出 JSON 到 iCloud Drive、Google Drive 或 Dropbox。",
+    };
+  }
+  if (backupNeeded) {
+    return {
+      status: "warning",
+      title: "月結後待備份",
+      description: "本機資料已更新，但還沒有匯出最新備份。",
+      actionHint: "完成月結或資料調整後，順手匯出備份。",
+    };
+  }
+  return null;
+}
+
+function getHealthChecks() {
+  const checks = [];
+  const hasEntries = state.entries.length > 0;
+  if (!hasEntries) {
+    return [
+      {
+        status: "idle",
+        title: "尚無資料",
+        description: "先新增第一筆資產、負債或額度，健康檢查才會開始提醒。",
+        actionHint: "可以從銀行餘額、股票市值或貸款金額開始。",
+      },
+    ];
+  }
+
+  const staleEntries = state.entries.filter((entry) => daysSince(entry.updatedAt || entry.createdAt || entry.date) > ENTRY_STALE_DAYS);
+  if (staleEntries.length) {
+    checks.push({
+      status: "warning",
+      title: "資料過期",
+      description: `${staleEntries.length} 筆資料超過 ${ENTRY_STALE_DAYS} 天未更新。`,
+      actionHint: "月底盤點時確認銀行、貸款、額度與手動輸入金額。",
+    });
+  }
+
+  const staleStocks = state.entries.filter((entry) => entry.stock?.symbol && (!entry.stock.priceUpdatedAt || daysSince(entry.stock.priceUpdatedAt) > STOCK_QUOTE_STALE_DAYS));
+  if (staleStocks.length) {
+    checks.push({
+      status: "warning",
+      title: "股票價格過期",
+      description: `${staleStocks.length} 筆股票價格超過 ${STOCK_QUOTE_STALE_DAYS} 天未更新或沒有更新時間。`,
+      actionHint: "到資料分頁按「更新股價」後再建立月結。",
+    });
+  }
+
+  const hasCurrentMonthSnapshot = state.snapshots.some((snapshot) => normalizeSnapshot(snapshot).month === currentMonth());
+  if (!hasCurrentMonthSnapshot) {
+    checks.push({
+      status: "warning",
+      title: "本月尚未月結",
+      description: `還沒有 ${currentMonth()} 的月結紀錄。`,
+      actionHint: "確認資料與股價後，到月結分頁建立月結。",
+    });
+  }
+
+  const backupHealth = getBackupHealthStatus();
+  if (backupHealth) checks.push(backupHealth);
+
+  if (!checks.length) {
+    return [
+      {
+        status: "ok",
+        title: "目前沒有待處理項目",
+        description: "資料、月結與備份狀態看起來都正常。",
+        actionHint: "下次月底再回來盤點即可。",
+      },
+    ];
+  }
+
+  return checks;
+}
+
+function renderHealthChecks() {
+  if (!els.healthList) return;
+  const checks = getHealthChecks();
+  els.healthPanel.classList.toggle("ok", checks.every((check) => check.status === "ok"));
+  els.healthPanel.classList.toggle("danger", checks.some((check) => check.status === "danger"));
+  els.healthPanel.classList.toggle("warning", checks.some((check) => check.status === "warning"));
+  els.healthPanel.classList.toggle("idle", checks.every((check) => check.status === "idle"));
+  els.healthList.innerHTML = checks
+    .map(
+      (check) => `
+        <article class="health-item ${check.status}">
+          <div>
+            <span class="health-badge ${check.status}">${healthStatusLabel(check.status)}</span>
+            <strong>${escapeHtml(check.title)}</strong>
+          </div>
+          <p>${escapeHtml(check.description)}</p>
+          <small>${escapeHtml(check.actionHint)}</small>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function healthStatusLabel(status) {
+  if (status === "ok") return "正常";
+  if (status === "danger") return "逾期";
+  if (status === "idle") return "開始";
+  return "注意";
+}
+
 function markBackupNeeded() {
   localStorage.setItem(BACKUP_NEEDED_STORAGE_KEY, "true");
   renderBackupStatus();
+  renderHealthChecks();
 }
 
 function markBackupCompleted(timestamp) {
   localStorage.setItem(BACKUP_STORAGE_KEY, timestamp);
   localStorage.setItem(BACKUP_NEEDED_STORAGE_KEY, "false");
   renderBackupStatus();
+  renderHealthChecks();
 }
 
 async function clearLocalData() {
@@ -847,6 +969,7 @@ function normalizeSnapshot(snapshot) {
 
 function render() {
   renderSummary();
+  renderHealthChecks();
   renderEntries();
   renderAllocation();
   renderSnapshots();

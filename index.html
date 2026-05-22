@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=41" />
+    <link rel="stylesheet" href="./styles.css?v=42" />
   </head>
   <body>
     <div class="app-shell">
@@ -68,6 +68,16 @@
             <span>可動用額度</span>
             <strong id="totalLimits">NT$0</strong>
           </article>
+        </section>
+
+        <section id="healthPanel" class="panel health-panel" aria-label="健康檢查">
+          <div class="panel-heading">
+            <div>
+              <h2>健康檢查</h2>
+              <p>每月盤點待辦</p>
+            </div>
+          </div>
+          <div id="healthList" class="health-list"></div>
         </section>
 
         <section class="workspace">
@@ -272,6 +282,6 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=41" type="module"></script>
+    <script src="./app.js?v=42" type="module"></script>
   </body>
 </html>

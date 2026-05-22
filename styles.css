@@ -152,6 +152,105 @@ h3 {
   margin-bottom: 14px;
 }
 
+.health-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  border-left: 5px solid var(--limit);
+}
+
+.health-panel.ok {
+  border-left-color: var(--asset);
+}
+
+.health-panel.danger {
+  border-left-color: var(--liability);
+}
+
+.health-panel.idle {
+  border-left-color: var(--line);
+}
+
+.health-panel .panel-heading p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.health-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.health-item {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffaf1;
+}
+
+.health-item > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.health-item strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.health-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.health-item small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.health-badge {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.health-badge.ok {
+  background: rgba(27, 127, 92, 0.12);
+  color: var(--asset);
+}
+
+.health-badge.warning {
+  background: rgba(124, 92, 31, 0.13);
+  color: var(--limit);
+}
+
+.health-badge.danger {
+  background: rgba(185, 69, 53, 0.12);
+  color: var(--liability);
+}
+
+.health-badge.idle {
+  background: var(--soft);
+  color: var(--muted);
+}
+
 .mobile-tab-bar {
   display: none;
 }
@@ -1112,10 +1211,12 @@ textarea {
   main[data-mobile-tab="overview"] #backupPanel,
   main[data-mobile-tab="overview"] #guidePanel,
   main[data-mobile-tab="data"] .summary-grid,
+  main[data-mobile-tab="data"] #healthPanel,
   main[data-mobile-tab="data"] .insights,
   main[data-mobile-tab="data"] #backupPanel,
   main[data-mobile-tab="data"] #guidePanel,
   main[data-mobile-tab="monthly"] .summary-grid,
+  main[data-mobile-tab="monthly"] #healthPanel,
   main[data-mobile-tab="monthly"] .workspace,
   main[data-mobile-tab="monthly"] .allocation-panel {
     display: none;
