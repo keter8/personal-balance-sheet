@@ -580,9 +580,12 @@ function renderSummary() {
 
 function updateRecordActions() {
   const hasEntries = state.entries.length > 0;
+  const hasBackupData = state.entries.length > 0 || state.snapshots.length > 0;
   const hasStocks = state.entries.some((entry) => entry.stock?.symbol && entry.stock?.shares > 0);
   els.snapshotButton.disabled = !hasEntries;
   els.snapshotButton.title = hasEntries ? "建立月結" : "請先新增至少一筆資料";
+  els.exportButton.disabled = !hasBackupData;
+  els.exportButton.title = hasBackupData ? "匯出加密備份" : "目前沒有可匯出的本機資料";
   els.refreshAllQuotesButton.disabled = !hasStocks;
   els.refreshAllQuotesButton.title = hasStocks ? "更新所有股票現價" : "目前沒有股票項目";
 }
@@ -1484,6 +1487,11 @@ function promptBackupPassword(message) {
 }
 
 async function exportData() {
+  if (!state.entries.length && !state.snapshots.length) {
+    showToast("目前沒有可匯出的本機資料");
+    return;
+  }
+
   const exportedAt = new Date().toISOString();
   const password = promptBackupPassword("請輸入加密備份密碼。\n\n請記住密碼，忘記密碼無法還原備份。");
   if (password === null) return;
