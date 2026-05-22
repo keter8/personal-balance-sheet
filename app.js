@@ -305,6 +305,7 @@ function timestampValue(value) {
 function getLocalUpdatedAt() {
   const times = [
     ...state.entries.map((entry) => timestampValue(entry.updatedAt || entry.createdAt)),
+    ...state.entries.map((entry) => timestampValue(entry.realEstate?.estimate?.fetchedAt)),
     ...state.snapshots.map((snapshot) => timestampValue(snapshot.createdAt || snapshot.date)),
   ];
   const latest = Math.max(0, ...times);
@@ -1685,7 +1686,6 @@ async function updateRealEstateEstimateForEntry(id, button) {
         ...entry.realEstate,
         estimate: toRealEstateEstimatePayload(estimate),
       },
-      updatedAt: new Date().toISOString(),
     };
     await putItem(STORE_ENTRIES, normalizeEntry(nextEntry));
     markBackupNeeded();
