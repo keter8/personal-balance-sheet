@@ -769,6 +769,15 @@ textarea {
   cursor: pointer;
 }
 
+.row-actions .estimate-action {
+  width: auto;
+  min-width: 44px;
+  padding: 0 8px;
+  color: var(--limit);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .empty-state {
   display: grid;
   gap: 6px;

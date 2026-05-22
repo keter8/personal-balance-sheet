@@ -607,6 +607,36 @@ function clearRealEstateEstimate() {
     "此為參考估值，不代表即時成交價或鑑價結果；可填路段讓估值優先使用同路段樣本，房產估值需由你確認後才會套用。";
 }
 
+function setRealEstateEstimateDataset(estimate) {
+  if (!estimate) return;
+  els.applyRealEstateEstimateButton.disabled = false;
+  els.applyRealEstateEstimateButton.dataset.amount = String(estimate.amount);
+  els.applyRealEstateEstimateButton.dataset.confidence = estimate.confidence || "低";
+  els.applyRealEstateEstimateButton.dataset.sampleCount = String(estimate.sampleCount || 0);
+  els.applyRealEstateEstimateButton.dataset.period = estimate.period || "";
+  els.applyRealEstateEstimateButton.dataset.medianUnitPrice = String(estimate.medianUnitPrice || estimate.medianUnitPricePerPing || 0);
+  els.applyRealEstateEstimateButton.dataset.scope = estimate.scope || "行政區";
+  els.applyRealEstateEstimateButton.dataset.street = estimate.street || "";
+  els.applyRealEstateEstimateButton.dataset.districtSampleCount = String(estimate.districtSampleCount || 0);
+  els.applyRealEstateEstimateButton.dataset.streetSampleCount = String(estimate.streetSampleCount || 0);
+}
+
+function toRealEstateEstimatePayload(estimate) {
+  return {
+    amount: estimate.amount,
+    confidence: estimate.confidence || "低",
+    sampleCount: Number(estimate.sampleCount) || 0,
+    period: estimate.period || "",
+    medianUnitPrice: Number(estimate.medianUnitPrice || estimate.medianUnitPricePerPing) || 0,
+    scope: estimate.scope || "行政區",
+    street: estimate.street || "",
+    districtSampleCount: Number(estimate.districtSampleCount) || 0,
+    streetSampleCount: Number(estimate.streetSampleCount) || 0,
+    source: "內政部實價登錄 Open Data",
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 function updateStockMarketValue() {
   if (!isStockEntry()) return;
   const shares = Number(els.stockShares.value);
@@ -707,6 +737,7 @@ function renderEntries() {
           </div>
           <div class="entry-amount">${entry.type === "liability" ? "-" : ""}${formatMoney(Number(entry.amount), entry.currency)}</div>
           <div class="row-actions">
+            ${entry.realEstate ? `<button class="estimate-action" type="button" data-action="update-real-estate-estimate" data-id="${entry.id}" title="更新參考估值">估值</button>` : ""}
             <button type="button" data-action="edit" data-id="${entry.id}" title="編輯">✎</button>
             <button type="button" data-action="delete" data-id="${entry.id}" title="刪除">×</button>
           </div>
@@ -730,12 +761,14 @@ function renderRealEstateDetails(entry) {
   const equity = Number(entry.amount) - mortgageAmount;
   const method = entry.realEstate.valuationMethod || "手動輸入";
   const confidence = entry.realEstate.confidence || "低";
+  const estimate = entry.realEstate.estimate;
   return `
     <div class="real-estate-detail">
       <span>房產總值 ${formatMoney(Number(entry.amount))}</span>
       <span>連動負債 ${mortgage ? `-${formatMoney(mortgageAmount)}` : "未連動"}</span>
       <span>房產淨值 ${formatMoney(equity)}</span>
       <span>${escapeHtml(entry.realEstate.city || "")}${escapeHtml(entry.realEstate.district || "")}${entry.realEstate.street ? ` · ${escapeHtml(entry.realEstate.street)}` : ""} · ${formatPrice(entry.realEstate.buildingAreaPing)} 坪 · ${method} · 信心 ${confidence}</span>
+      ${estimate ? `<span>參考估值 ${formatMoney(estimate.amount)} · ${escapeHtml(estimate.scope || "行政區")} · ${estimate.sampleCount || 0} 筆</span>` : ""}
     </div>
   `;
 }
@@ -1158,19 +1191,17 @@ async function handleSubmit(event) {
         confidence: usesReferenceEstimate ? els.applyRealEstateEstimateButton.dataset.confidence || "低" : "低",
         linkedLiabilityId: els.realEstateMortgage.value || null,
         estimate: usesReferenceEstimate
-          ? {
+          ? toRealEstateEstimatePayload({
               amount: appliedRealEstateEstimateAmount,
-              confidence: els.applyRealEstateEstimateButton.dataset.confidence || "低",
-              sampleCount: Number(els.applyRealEstateEstimateButton.dataset.sampleCount) || 0,
-              period: els.applyRealEstateEstimateButton.dataset.period || "",
-              medianUnitPrice: Number(els.applyRealEstateEstimateButton.dataset.medianUnitPrice) || 0,
-              scope: els.applyRealEstateEstimateButton.dataset.scope || "行政區",
-              street: els.applyRealEstateEstimateButton.dataset.street || "",
-              districtSampleCount: Number(els.applyRealEstateEstimateButton.dataset.districtSampleCount) || 0,
-              streetSampleCount: Number(els.applyRealEstateEstimateButton.dataset.streetSampleCount) || 0,
-              source: "內政部實價登錄 Open Data",
-              fetchedAt: new Date().toISOString(),
-            }
+              confidence: els.applyRealEstateEstimateButton.dataset.confidence,
+              sampleCount: els.applyRealEstateEstimateButton.dataset.sampleCount,
+              period: els.applyRealEstateEstimateButton.dataset.period,
+              medianUnitPrice: els.applyRealEstateEstimateButton.dataset.medianUnitPrice,
+              scope: els.applyRealEstateEstimateButton.dataset.scope,
+              street: els.applyRealEstateEstimateButton.dataset.street,
+              districtSampleCount: els.applyRealEstateEstimateButton.dataset.districtSampleCount,
+              streetSampleCount: els.applyRealEstateEstimateButton.dataset.streetSampleCount,
+            })
           : null,
       }
     : null;
@@ -1231,6 +1262,7 @@ function editEntry(id) {
   syncRealEstateMortgageOptions(entry.realEstate?.linkedLiabilityId || "");
   clearRealEstateEstimate();
   if (entry.realEstate?.estimate) {
+    setRealEstateEstimateDataset(entry.realEstate.estimate);
     els.realEstateEstimateStatus.textContent = `已保存參考估值 ${formatMoney(entry.realEstate.estimate.amount)}，${entry.realEstate.estimate.scope || "行政區"}樣本 ${entry.realEstate.estimate.sampleCount || 0} 筆。`;
   }
   if (isCashEntry()) {
@@ -1632,6 +1664,38 @@ function applyRealEstateEstimate() {
   els.entryAmount.value = String(amount);
   els.realEstateEstimateStatus.textContent = `已套用參考估值 ${formatMoney(amount)}；房產估值需儲存後才會更新。`;
   showToast("已套用參考估值，請儲存項目");
+}
+
+async function updateRealEstateEstimateForEntry(id, button) {
+  const entry = state.entries.find((item) => item.id === id);
+  if (!entry?.realEstate) return;
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "估...";
+  try {
+    const estimate = await fetchRealEstateReferenceEstimate({
+      city: entry.realEstate.city,
+      district: entry.realEstate.district,
+      buildingAreaPing: Number(entry.realEstate.buildingAreaPing),
+      street: entry.realEstate.street || "",
+    });
+    const nextEntry = {
+      ...entry,
+      realEstate: {
+        ...entry.realEstate,
+        estimate: toRealEstateEstimatePayload(estimate),
+      },
+      updatedAt: new Date().toISOString(),
+    };
+    await putItem(STORE_ENTRIES, normalizeEntry(nextEntry));
+    markBackupNeeded();
+    await loadData();
+    showToast(`已更新參考估值 ${formatMoney(estimate.amount)}，請編輯後確認是否套用`);
+  } catch {
+    button.disabled = false;
+    button.textContent = originalText;
+    showToast("無法更新參考估值");
+  }
 }
 
 async function getMonthlyCloseTotals(month) {
@@ -2079,6 +2143,7 @@ function bindEvents() {
     if (!button) return;
     const { action, id } = button.dataset;
     if (action === "edit") editEntry(id);
+    if (action === "update-real-estate-estimate") await updateRealEstateEstimateForEntry(id, button);
     if (action === "delete") {
       await deleteItem(STORE_ENTRIES, id);
       await loadData();
