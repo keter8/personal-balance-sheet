@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=34" />
+    <link rel="stylesheet" href="./styles.css?v=35" />
   </head>
   <body>
     <div class="app-shell">
@@ -64,65 +64,14 @@
           </article>
         </section>
 
-        <section id="guidePanel" class="panel guide-panel" aria-label="使用說明">
-          <div class="guide-summary">
-            <div>
-              <h2>每月怎麼用</h2>
-              <p>月底或月初對帳一次，整理當下的資產負債表，再建立月結追蹤趨勢。</p>
-            </div>
-            <button id="guideToggleButton" class="text-button" type="button" aria-expanded="false">使用說明</button>
-          </div>
-
-          <div id="guideBody" class="guide-body" hidden>
-            <ol class="guide-steps">
-              <li>
-                <strong>更新現金、銀行、貸款餘額</strong>
-                <span>把目前真正存在的錢、未還的貸款、可動用額度更新成最新狀態。</span>
-              </li>
-              <li>
-                <strong>更新股價</strong>
-                <span>按「更新股價」刷新股票市值；個別股票也可以在編輯時抓現價。</span>
-              </li>
-              <li>
-                <strong>選擇月結月份並建立月結</strong>
-                <span>股票會用所選月份最後交易日收盤價重算；非股票項目使用目前畫面金額。</span>
-              </li>
-              <li>
-                <strong>匯出備份</strong>
-                <span>資料只存在這台裝置的瀏覽器裡，月結後順手匯出 JSON 備份最安心。</span>
-              </li>
-            </ol>
-
-            <div class="guide-notes">
-              <article>
-                <h3>這不是記帳</h3>
-                <p>不記早餐、交通、刷卡明細；只記某個時間點的資產、負債與額度。</p>
-              </article>
-              <article>
-                <h3>月結看趨勢</h3>
-                <p>月結增減額是跟時間上前一筆月結比較，用來觀察淨資產是否穩定成長。</p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section id="backupPanel" class="panel backup-panel" aria-label="備份狀態">
-          <div class="backup-copy">
-            <h2>備份狀態</h2>
-            <p id="backupStatusText">尚未匯出備份。</p>
-            <p id="backupImportText" class="backup-muted">尚未匯入備份檔。</p>
-          </div>
-          <div class="backup-actions">
-            <div id="backupBadge" class="backup-badge warning">建議備份</div>
-            <button id="clearLocalDataButton" class="text-button danger" type="button">清除本機資料</button>
-          </div>
-        </section>
-
         <section class="workspace">
           <aside class="panel input-panel" aria-label="新增紀錄">
             <div class="panel-heading">
               <h2>新增項目</h2>
-              <button id="clearFormButton" class="text-button" type="button">清空</button>
+              <div class="panel-actions compact-actions">
+                <button id="toggleEntryFormButton" class="text-button" type="button" aria-expanded="true">收合</button>
+                <button id="clearFormButton" class="text-button" type="button">清空</button>
+              </div>
             </div>
 
             <form id="entryForm" class="entry-form">
@@ -232,6 +181,7 @@
             </div>
 
             <div id="entryList" class="entry-list"></div>
+            <button id="toggleEntriesButton" class="text-button entry-toggle" type="button" hidden>顯示更多</button>
           </section>
         </section>
 
@@ -255,10 +205,64 @@
             <button id="toggleSnapshotsButton" class="text-button snapshot-toggle" type="button" hidden>顯示更多</button>
           </article>
         </section>
+
+        <section id="backupPanel" class="panel backup-panel" aria-label="備份狀態">
+          <div class="backup-copy">
+            <h2>備份狀態</h2>
+            <p id="backupStatusText">尚未匯出備份。</p>
+            <p id="backupImportText" class="backup-muted">尚未匯入備份檔。</p>
+          </div>
+          <div class="backup-actions">
+            <div id="backupBadge" class="backup-badge warning">建議備份</div>
+            <button id="clearLocalDataButton" class="text-button danger" type="button">清除本機資料</button>
+          </div>
+        </section>
+
+        <section id="guidePanel" class="panel guide-panel" aria-label="使用說明">
+          <div class="guide-summary">
+            <div>
+              <h2>每月怎麼用</h2>
+              <p>月底或月初對帳一次，整理當下的資產負債表，再建立月結追蹤趨勢。</p>
+            </div>
+            <button id="guideToggleButton" class="text-button" type="button" aria-expanded="false">使用說明</button>
+          </div>
+
+          <div id="guideBody" class="guide-body" hidden>
+            <ol class="guide-steps">
+              <li>
+                <strong>更新現金、銀行、貸款餘額</strong>
+                <span>把目前真正存在的錢、未還的貸款、可動用額度更新成最新狀態。</span>
+              </li>
+              <li>
+                <strong>更新股價</strong>
+                <span>按「更新股價」刷新股票市值；個別股票也可以在編輯時抓現價。</span>
+              </li>
+              <li>
+                <strong>選擇月結月份並建立月結</strong>
+                <span>股票會用所選月份最後交易日收盤價重算；非股票項目使用目前畫面金額。</span>
+              </li>
+              <li>
+                <strong>匯出備份</strong>
+                <span>資料只存在這台裝置的瀏覽器裡，月結後順手匯出 JSON 備份最安心。</span>
+              </li>
+            </ol>
+
+            <div class="guide-notes">
+              <article>
+                <h3>這不是記帳</h3>
+                <p>不記早餐、交通、刷卡明細；只記某個時間點的資產、負債與額度。</p>
+              </article>
+              <article>
+                <h3>月結看趨勢</h3>
+                <p>月結增減額是跟時間上前一筆月結比較，用來觀察淨資產是否穩定成長。</p>
+              </article>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=34" type="module"></script>
+    <script src="./app.js?v=35" type="module"></script>
   </body>
 </html>

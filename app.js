@@ -3,6 +3,7 @@ const DB_VERSION = 1;
 const STORE_ENTRIES = "entries";
 const STORE_SNAPSHOTS = "snapshots";
 const GUIDE_STORAGE_KEY = "finance-ledger-guide-open";
+const ENTRY_FORM_STORAGE_KEY = "finance-ledger-entry-form-open";
 const BACKUP_STORAGE_KEY = "finance-ledger-last-backup-at";
 const BACKUP_NEEDED_STORAGE_KEY = "finance-ledger-backup-needed";
 const IMPORTED_BACKUP_STORAGE_KEY = "finance-ledger-last-imported-exported-at";
@@ -18,6 +19,7 @@ const state = {
   entries: [],
   snapshots: [],
   filter: "all",
+  showAllEntries: false,
   showAllSnapshots: false,
   deferredInstallPrompt: null,
 };
@@ -34,12 +36,14 @@ const els = {
   entryDate: $("#entryDate"),
   entryNote: $("#entryNote"),
   limitHint: $("#limitHint"),
+  inputPanel: $(".input-panel"),
   stockFields: $("#stockFields"),
   stockSymbol: $("#stockSymbol"),
   stockShares: $("#stockShares"),
   stockPrice: $("#stockPrice"),
   fetchQuoteButton: $("#fetchQuoteButton"),
   quoteStatus: $("#quoteStatus"),
+  toggleEntryFormButton: $("#toggleEntryFormButton"),
   clearFormButton: $("#clearFormButton"),
   netWorth: $("#netWorth"),
   totalAssets: $("#totalAssets"),
@@ -47,6 +51,7 @@ const els = {
   totalLimits: $("#totalLimits"),
   lastUpdated: $("#lastUpdated"),
   entryList: $("#entryList"),
+  toggleEntriesButton: $("#toggleEntriesButton"),
   emptyState: $("#emptyState"),
   guidePanel: $("#guidePanel"),
   guideBody: $("#guideBody"),
@@ -71,6 +76,8 @@ const els = {
   toast: $("#toast"),
 };
 
+const DESKTOP_ENTRY_PREVIEW_LIMIT = 8;
+const MOBILE_ENTRY_PREVIEW_LIMIT = 4;
 const SNAPSHOT_PREVIEW_LIMIT = 12;
 
 function openDb() {
@@ -181,6 +188,33 @@ function setGuideOpen(open, persist = true) {
   if (persist) {
     localStorage.setItem(GUIDE_STORAGE_KEY, open ? "true" : "false");
   }
+}
+
+function getStoredEntryFormState() {
+  const value = localStorage.getItem(ENTRY_FORM_STORAGE_KEY);
+  if (value === null) return null;
+  return value === "true";
+}
+
+function setEntryFormOpen(open, persist = true) {
+  els.form.hidden = !open;
+  els.toggleEntryFormButton.textContent = open ? "收合" : "展開";
+  els.toggleEntryFormButton.setAttribute("aria-expanded", String(open));
+  els.inputPanel.classList.toggle("collapsed", !open);
+  els.clearFormButton.hidden = !open;
+  if (persist) {
+    localStorage.setItem(ENTRY_FORM_STORAGE_KEY, open ? "true" : "false");
+  }
+}
+
+function syncEntryFormDefault() {
+  const storedState = getStoredEntryFormState();
+  if (storedState !== null) {
+    setEntryFormOpen(storedState, false);
+    return;
+  }
+
+  setEntryFormOpen(state.entries.length === 0, false);
 }
 
 function formatDateTime(value) {
@@ -386,9 +420,13 @@ function renderEntries() {
   const entries = state.entries
     .filter((entry) => state.filter === "all" || entry.type === state.filter)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const previewLimit = getEntryPreviewLimit();
+  const visibleEntries = state.showAllEntries ? entries : entries.slice(0, previewLimit);
 
   els.emptyState.hidden = entries.length > 0;
-  els.entryList.innerHTML = entries
+  els.toggleEntriesButton.hidden = entries.length <= previewLimit;
+  els.toggleEntriesButton.textContent = state.showAllEntries ? "收合清單" : `顯示全部 ${entries.length} 筆`;
+  els.entryList.innerHTML = visibleEntries
     .map(
       (entry) => `
         <article class="entry-row ${entry.type}">
@@ -404,7 +442,7 @@ function renderEntries() {
         </article>
       `
     )
-    .join("");
+      .join("");
 }
 
 function formatShares(value) {
@@ -555,6 +593,10 @@ function renderSnapshots() {
     .join("");
 }
 
+function getEntryPreviewLimit() {
+  return window.matchMedia("(max-width: 620px)").matches ? MOBILE_ENTRY_PREVIEW_LIMIT : DESKTOP_ENTRY_PREVIEW_LIMIT;
+}
+
 function renderTrendChart(snapshots) {
   if (snapshots.length < 2) {
     els.trendChart.innerHTML = `<div class="trend-empty">至少兩筆月結後顯示趨勢</div>`;
@@ -660,6 +702,7 @@ async function loadData() {
   if (storedGuideState === null) {
     setGuideOpen(state.entries.length === 0, false);
   }
+  syncEntryFormDefault();
   render();
 }
 
@@ -710,6 +753,7 @@ async function handleSubmit(event) {
 function editEntry(id) {
   const entry = state.entries.find((item) => item.id === id);
   if (!entry) return;
+  setEntryFormOpen(true);
   els.entryId.value = entry.id;
   els.entryType.value = entry.type;
   updateCategoryOptions();
@@ -1091,6 +1135,9 @@ function bindEvents() {
   });
   els.fetchQuoteButton.addEventListener("click", refreshQuote);
   els.form.addEventListener("submit", handleSubmit);
+  els.toggleEntryFormButton.addEventListener("click", () => {
+    setEntryFormOpen(els.form.hidden);
+  });
   els.clearFormButton.addEventListener("click", resetForm);
   els.guideToggleButton.addEventListener("click", () => {
     setGuideOpen(els.guideBody.hidden);
@@ -1123,6 +1170,7 @@ function bindEvents() {
       document.querySelectorAll("[data-filter]").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
       state.filter = button.dataset.filter;
+      state.showAllEntries = false;
       renderEntries();
     });
   });
@@ -1137,6 +1185,11 @@ function bindEvents() {
       await loadData();
       showToast("已刪除");
     }
+  });
+
+  els.toggleEntriesButton.addEventListener("click", () => {
+    state.showAllEntries = !state.showAllEntries;
+    renderEntries();
   });
 
   els.snapshotList.addEventListener("click", async (event) => {

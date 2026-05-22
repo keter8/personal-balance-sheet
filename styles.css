@@ -156,6 +156,11 @@ h3 {
   margin-bottom: 14px;
 }
 
+.insights + .backup-panel,
+.backup-panel + .guide-panel {
+  margin-top: 14px;
+}
+
 .backup-panel {
   display: flex;
   align-items: flex-start;
@@ -378,6 +383,18 @@ h3 {
   justify-content: flex-end;
   align-items: flex-end;
   gap: 8px;
+}
+
+.compact-actions {
+  align-items: center;
+}
+
+.input-panel.collapsed {
+  padding-bottom: 18px;
+}
+
+.input-panel.collapsed .panel-heading {
+  margin-bottom: 0;
 }
 
 .month-picker {
@@ -655,6 +672,11 @@ textarea {
 }
 
 .snapshot-toggle {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.entry-toggle {
   width: 100%;
   margin-top: 10px;
 }
