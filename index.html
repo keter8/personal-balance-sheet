@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=47" />
+    <link rel="stylesheet" href="./styles.css?v=48" />
   </head>
   <body>
     <div class="app-shell">
@@ -160,6 +160,13 @@
                   </label>
 
                   <label>
+                    路段/街道（選填）
+                    <input id="realEstateStreet" placeholder="例如：北新一街" />
+                  </label>
+                </div>
+
+                <div class="form-grid">
+                  <label>
                     連動房貸/已動用
                     <select id="realEstateMortgage"></select>
                   </label>
@@ -170,7 +177,7 @@
                   <button id="applyRealEstateEstimateButton" class="text-button" type="button" disabled>套用參考估值</button>
                 </div>
 
-                <p id="realEstateEstimateStatus" class="quote-status">此為參考估值，不代表即時成交價或鑑價結果；房產估值需由你確認後才會套用。</p>
+                <p id="realEstateEstimateStatus" class="quote-status">此為參考估值，不代表即時成交價或鑑價結果；可填路段讓估值優先使用同路段樣本，房產估值需由你確認後才會套用。</p>
               </div>
 
               <label>
@@ -315,6 +322,6 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=47" type="module"></script>
+    <script src="./app.js?v=48" type="module"></script>
   </body>
 </html>

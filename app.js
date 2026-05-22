@@ -15,6 +15,7 @@ const BACKUP_KDF_ITERATIONS = 210000;
 const BACKUP_OVERDUE_DAYS = 30;
 const ENTRY_STALE_DAYS = 30;
 const STOCK_QUOTE_STALE_DAYS = 7;
+const REAL_ESTATE_STREET_SAMPLE_MIN = 5;
 
 const assetCategories = ["現金", "銀行餘額", "證券戶現金", "股票市值", "基金/ETF", "房地產", "外幣", "保單", "其他資產"];
 const liabilityCategories = ["房貸", "理財型房貸已動用", "信貸", "車貸", "信用卡", "私人借款", "其他負債"];
@@ -81,6 +82,7 @@ const els = {
   realEstateCity: $("#realEstateCity"),
   realEstateDistrict: $("#realEstateDistrict"),
   realEstateArea: $("#realEstateArea"),
+  realEstateStreet: $("#realEstateStreet"),
   realEstateMortgage: $("#realEstateMortgage"),
   fetchRealEstateEstimateButton: $("#fetchRealEstateEstimateButton"),
   applyRealEstateEstimateButton: $("#applyRealEstateEstimateButton"),
@@ -580,6 +582,7 @@ function updateRealEstateFields() {
   els.realEstateArea.required = enabled;
   els.realEstateDistrict.disabled = !enabled;
   els.realEstateArea.disabled = !enabled;
+  els.realEstateStreet.disabled = !enabled;
   els.realEstateMortgage.disabled = !enabled;
   els.fetchRealEstateEstimateButton.disabled = !enabled;
   if (enabled) {
@@ -596,7 +599,12 @@ function clearRealEstateEstimate() {
   delete els.applyRealEstateEstimateButton.dataset.sampleCount;
   delete els.applyRealEstateEstimateButton.dataset.period;
   delete els.applyRealEstateEstimateButton.dataset.medianUnitPrice;
-  els.realEstateEstimateStatus.textContent = "此為參考估值，不代表即時成交價或鑑價結果；房產估值需由你確認後才會套用。";
+  delete els.applyRealEstateEstimateButton.dataset.scope;
+  delete els.applyRealEstateEstimateButton.dataset.street;
+  delete els.applyRealEstateEstimateButton.dataset.districtSampleCount;
+  delete els.applyRealEstateEstimateButton.dataset.streetSampleCount;
+  els.realEstateEstimateStatus.textContent =
+    "此為參考估值，不代表即時成交價或鑑價結果；可填路段讓估值優先使用同路段樣本，房產估值需由你確認後才會套用。";
 }
 
 function updateStockMarketValue() {
@@ -621,6 +629,7 @@ function resetForm() {
   els.quoteStatus.textContent = "股票市值會用股數 × 現價自動換算。";
   els.realEstateDistrict.value = "";
   els.realEstateArea.value = "";
+  els.realEstateStreet.value = "";
   els.realEstateMortgage.value = "";
   clearRealEstateEstimate();
   updateRealEstateFields();
@@ -726,7 +735,7 @@ function renderRealEstateDetails(entry) {
       <span>房產總值 ${formatMoney(Number(entry.amount))}</span>
       <span>連動負債 ${mortgage ? `-${formatMoney(mortgageAmount)}` : "未連動"}</span>
       <span>房產淨值 ${formatMoney(equity)}</span>
-      <span>${escapeHtml(entry.realEstate.city || "")}${escapeHtml(entry.realEstate.district || "")} · ${formatPrice(entry.realEstate.buildingAreaPing)} 坪 · ${method} · 信心 ${confidence}</span>
+      <span>${escapeHtml(entry.realEstate.city || "")}${escapeHtml(entry.realEstate.district || "")}${entry.realEstate.street ? ` · ${escapeHtml(entry.realEstate.street)}` : ""} · ${formatPrice(entry.realEstate.buildingAreaPing)} 坪 · ${method} · 信心 ${confidence}</span>
     </div>
   `;
 }
@@ -1144,6 +1153,7 @@ async function handleSubmit(event) {
         city: els.realEstateCity.value,
         district: els.realEstateDistrict.value.trim(),
         buildingAreaPing: Number(els.realEstateArea.value),
+        street: els.realEstateStreet.value.trim(),
         valuationMethod: usesReferenceEstimate ? "實價登錄參考" : "手動輸入",
         confidence: usesReferenceEstimate ? els.applyRealEstateEstimateButton.dataset.confidence || "低" : "低",
         linkedLiabilityId: els.realEstateMortgage.value || null,
@@ -1154,6 +1164,10 @@ async function handleSubmit(event) {
               sampleCount: Number(els.applyRealEstateEstimateButton.dataset.sampleCount) || 0,
               period: els.applyRealEstateEstimateButton.dataset.period || "",
               medianUnitPrice: Number(els.applyRealEstateEstimateButton.dataset.medianUnitPrice) || 0,
+              scope: els.applyRealEstateEstimateButton.dataset.scope || "行政區",
+              street: els.applyRealEstateEstimateButton.dataset.street || "",
+              districtSampleCount: Number(els.applyRealEstateEstimateButton.dataset.districtSampleCount) || 0,
+              streetSampleCount: Number(els.applyRealEstateEstimateButton.dataset.streetSampleCount) || 0,
               source: "內政部實價登錄 Open Data",
               fetchedAt: new Date().toISOString(),
             }
@@ -1213,10 +1227,11 @@ function editEntry(id) {
   els.realEstateCity.value = entry.realEstate?.city || realEstateCities[0][0];
   els.realEstateDistrict.value = entry.realEstate?.district || "";
   els.realEstateArea.value = entry.realEstate?.buildingAreaPing || "";
+  els.realEstateStreet.value = entry.realEstate?.street || "";
   syncRealEstateMortgageOptions(entry.realEstate?.linkedLiabilityId || "");
   clearRealEstateEstimate();
   if (entry.realEstate?.estimate) {
-    els.realEstateEstimateStatus.textContent = `已保存參考估值 ${formatMoney(entry.realEstate.estimate.amount)}，樣本 ${entry.realEstate.estimate.sampleCount || 0} 筆。`;
+    els.realEstateEstimateStatus.textContent = `已保存參考估值 ${formatMoney(entry.realEstate.estimate.amount)}，${entry.realEstate.estimate.scope || "行政區"}樣本 ${entry.realEstate.estimate.sampleCount || 0} 筆。`;
   }
   if (isCashEntry()) {
     els.entryAmount.focus();
@@ -1439,7 +1454,49 @@ function confidenceForSampleCount(count) {
   return "低";
 }
 
-async function fetchRealEstateReferenceEstimate({ city, district, buildingAreaPing }) {
+function normalizeRealEstateKeyword(value) {
+  return String(value || "")
+    .trim()
+    .replaceAll("台", "臺")
+    .replace(/\s/g, "");
+}
+
+function pickRealEstateEstimateSamples(samples, street) {
+  const cleanStreet = normalizeRealEstateKeyword(street);
+  if (!cleanStreet) {
+    return {
+      samples,
+      scope: "行政區",
+      usedStreet: "",
+      streetSampleCount: 0,
+      districtSampleCount: samples.length,
+      fallbackReason: "",
+    };
+  }
+
+  const streetSamples = samples.filter((sample) => normalizeRealEstateKeyword(sample.address).includes(cleanStreet));
+  if (streetSamples.length >= REAL_ESTATE_STREET_SAMPLE_MIN) {
+    return {
+      samples: streetSamples,
+      scope: "同路段",
+      usedStreet: street,
+      streetSampleCount: streetSamples.length,
+      districtSampleCount: samples.length,
+      fallbackReason: "",
+    };
+  }
+
+  return {
+    samples,
+    scope: "行政區",
+    usedStreet: street,
+    streetSampleCount: streetSamples.length,
+    districtSampleCount: samples.length,
+    fallbackReason: `同路段樣本少於 ${REAL_ESTATE_STREET_SAMPLE_MIN} 筆，改用行政區樣本。`,
+  };
+}
+
+async function fetchRealEstateReferenceEstimate({ city, district, buildingAreaPing, street }) {
   const cityCode = realEstateCities.find(([name]) => name === city)?.[1];
   if (!cityCode || !district || !(buildingAreaPing > 0)) throw new Error("Missing real estate inputs");
 
@@ -1451,6 +1508,7 @@ async function fetchRealEstateReferenceEstimate({ city, district, buildingAreaPi
   const indexOf = (name) => headers.indexOf(name);
   const districtIndex = indexOf("鄉鎮市區");
   const targetIndex = indexOf("交易標的");
+  const addressIndex = indexOf("土地位置建物門牌");
   const dateIndex = indexOf("交易年月日");
   const typeIndex = indexOf("建物型態");
   const useIndex = indexOf("主要用途");
@@ -1469,6 +1527,7 @@ async function fetchRealEstateReferenceEstimate({ city, district, buildingAreaPi
       return {
         district: row[districtIndex],
         target: row[targetIndex] || "",
+        address: row[addressIndex] || "",
         buildingType: row[typeIndex] || "",
         use: row[useIndex] || "",
         unitPricePerSquareMeter,
@@ -1489,10 +1548,11 @@ async function fetchRealEstateReferenceEstimate({ city, district, buildingAreaPi
 
   if (!samples.length) throw new Error("No samples");
 
+  const sampleSet = pickRealEstateEstimateSamples(samples, street);
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-  const recentSamples = samples.filter((sample) => !sample.date || new Date(sample.date) >= oneYearAgo);
-  const estimateSamples = recentSamples.length ? recentSamples : samples;
+  const recentSamples = sampleSet.samples.filter((sample) => !sample.date || new Date(sample.date) >= oneYearAgo);
+  const estimateSamples = recentSamples.length ? recentSamples : sampleSet.samples;
   const unitPricePerSquareMeter = Math.round(median(estimateSamples.map((sample) => sample.unitPricePerSquareMeter)));
   const medianUnitPricePerPing = Math.round(unitPricePerSquareMeter * PING_TO_SQUARE_METER);
   const amount = Math.round(medianUnitPricePerPing * buildingAreaPing);
@@ -1505,8 +1565,26 @@ async function fetchRealEstateReferenceEstimate({ city, district, buildingAreaPi
     period,
     medianUnitPricePerPing,
     confidence: confidenceForSampleCount(estimateSamples.length),
+    scope: sampleSet.scope,
+    street: sampleSet.usedStreet,
+    districtSampleCount: sampleSet.districtSampleCount,
+    streetSampleCount: sampleSet.streetSampleCount,
+    fallbackReason: sampleSet.fallbackReason,
     source,
   };
+}
+
+function renderRealEstateEstimateStatus(estimate) {
+  const scopeDetail =
+    estimate.scope === "同路段"
+      ? `估值方式：${estimate.street} 同路段住宅交易，每坪中位數 ${formatMoney(estimate.medianUnitPricePerPing)}。`
+      : `估值方式：${estimate.period} ${estimate.scope}住宅交易，每坪中位數 ${formatMoney(estimate.medianUnitPricePerPing)}。`;
+  const sampleDetail =
+    estimate.street && estimate.scope !== "同路段"
+      ? `同路段樣本 ${estimate.streetSampleCount} 筆；行政區樣本 ${estimate.districtSampleCount} 筆。`
+      : `樣本 ${estimate.sampleCount} 筆；期間 ${estimate.period}。`;
+  const fallback = estimate.fallbackReason ? `${estimate.fallbackReason} ` : "";
+  return `參考估值 ${formatMoney(estimate.amount)}；${scopeDetail} ${fallback}${sampleDetail} 信心 ${estimate.confidence}。未依社區、屋齡、樓層、車位、裝潢修正；不代表即時成交價或鑑價結果。`;
 }
 
 async function fetchRealEstateEstimate() {
@@ -1514,6 +1592,7 @@ async function fetchRealEstateEstimate() {
   const city = els.realEstateCity.value;
   const district = els.realEstateDistrict.value.trim();
   const buildingAreaPing = Number(els.realEstateArea.value);
+  const street = els.realEstateStreet.value.trim();
   if (!city || !district || !(buildingAreaPing > 0)) {
     showToast("請先輸入縣市、行政區與建物坪數");
     return;
@@ -1524,14 +1603,18 @@ async function fetchRealEstateEstimate() {
   els.fetchRealEstateEstimateButton.textContent = "估算中...";
   clearRealEstateEstimate();
   try {
-    const estimate = await fetchRealEstateReferenceEstimate({ city, district, buildingAreaPing });
+    const estimate = await fetchRealEstateReferenceEstimate({ city, district, buildingAreaPing, street });
     els.applyRealEstateEstimateButton.disabled = false;
     els.applyRealEstateEstimateButton.dataset.amount = String(estimate.amount);
     els.applyRealEstateEstimateButton.dataset.confidence = estimate.confidence;
     els.applyRealEstateEstimateButton.dataset.sampleCount = String(estimate.sampleCount);
     els.applyRealEstateEstimateButton.dataset.period = estimate.period;
     els.applyRealEstateEstimateButton.dataset.medianUnitPrice = String(estimate.medianUnitPricePerPing);
-    els.realEstateEstimateStatus.textContent = `參考估值 ${formatMoney(estimate.amount)}；每坪中位數 ${formatMoney(estimate.medianUnitPricePerPing)}；樣本 ${estimate.sampleCount} 筆；期間 ${estimate.period}；信心 ${estimate.confidence}。此為參考估值，不代表即時成交價或鑑價結果。`;
+    els.applyRealEstateEstimateButton.dataset.scope = estimate.scope;
+    els.applyRealEstateEstimateButton.dataset.street = estimate.street;
+    els.applyRealEstateEstimateButton.dataset.districtSampleCount = String(estimate.districtSampleCount);
+    els.applyRealEstateEstimateButton.dataset.streetSampleCount = String(estimate.streetSampleCount);
+    els.realEstateEstimateStatus.textContent = renderRealEstateEstimateStatus(estimate);
     showToast("已取得參考估值");
   } catch {
     clearRealEstateEstimate();
@@ -1932,7 +2015,7 @@ function bindEvents() {
     els.stockSymbol.value = normalizeSymbol(els.stockSymbol.value);
   });
   els.fetchQuoteButton.addEventListener("click", refreshQuote);
-  [els.realEstateCity, els.realEstateDistrict, els.realEstateArea].forEach((element) => {
+  [els.realEstateCity, els.realEstateDistrict, els.realEstateArea, els.realEstateStreet].forEach((element) => {
     element.addEventListener("input", clearRealEstateEstimate);
     element.addEventListener("change", clearRealEstateEstimate);
   });
