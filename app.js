@@ -17,8 +17,9 @@ const ENTRY_STALE_DAYS = 30;
 const STOCK_QUOTE_STALE_DAYS = 7;
 
 const assetCategories = ["現金", "銀行餘額", "證券戶現金", "股票市值", "基金/ETF", "房地產", "外幣", "保單", "其他資產"];
-const liabilityCategories = ["房貸", "信貸", "車貸", "信用卡", "私人借款", "其他負債"];
+const liabilityCategories = ["房貸", "理財型房貸已動用", "信貸", "車貸", "信用卡", "私人借款", "其他負債"];
 const limitCategories = ["理財型房貸額度", "信用卡額度", "信貸額度", "其他額度"];
+const mortgageLinkedLiabilityCategories = new Set(["房貸", "理財型房貸已動用"]);
 const realEstateCities = [
   ["臺北市", "A"],
   ["新北市", "F"],
@@ -561,10 +562,10 @@ function setupRealEstateOptions() {
 }
 
 function syncRealEstateMortgageOptions(selectedId = "") {
-  const mortgages = state.entries.filter((entry) => entry.type === "liability" && entry.category === "房貸");
+  const mortgages = state.entries.filter((entry) => entry.type === "liability" && mortgageLinkedLiabilityCategories.has(entry.category));
   els.realEstateMortgage.innerHTML = [
-    `<option value="">不連動房貸</option>`,
-    ...mortgages.map((entry) => `<option value="${entry.id}">${escapeHtml(entry.name)} · ${formatMoney(Number(entry.amount))}</option>`),
+    `<option value="">不連動負債</option>`,
+    ...mortgages.map((entry) => `<option value="${entry.id}">${escapeHtml(entry.name)} · ${entry.category} · ${formatMoney(Number(entry.amount))}</option>`),
   ].join("");
   if (selectedId && mortgages.some((entry) => entry.id === selectedId)) {
     els.realEstateMortgage.value = selectedId;
@@ -710,7 +711,7 @@ function renderEntries() {
 function getLinkedLiability(entry) {
   const linkedId = entry.realEstate?.linkedLiabilityId;
   if (!linkedId) return null;
-  return state.entries.find((item) => item.id === linkedId && item.type === "liability") || null;
+  return state.entries.find((item) => item.id === linkedId && item.type === "liability" && mortgageLinkedLiabilityCategories.has(item.category)) || null;
 }
 
 function renderRealEstateDetails(entry) {
@@ -723,7 +724,7 @@ function renderRealEstateDetails(entry) {
   return `
     <div class="real-estate-detail">
       <span>房產總值 ${formatMoney(Number(entry.amount))}</span>
-      <span>房貸 ${mortgage ? `-${formatMoney(mortgageAmount)}` : "未連動"}</span>
+      <span>連動負債 ${mortgage ? `-${formatMoney(mortgageAmount)}` : "未連動"}</span>
       <span>房產淨值 ${formatMoney(equity)}</span>
       <span>${escapeHtml(entry.realEstate.city || "")}${escapeHtml(entry.realEstate.district || "")} · ${formatPrice(entry.realEstate.buildingAreaPing)} 坪 · ${method} · 信心 ${confidence}</span>
     </div>
