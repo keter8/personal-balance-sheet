@@ -1504,6 +1504,13 @@ function confidenceForSampleCount(count) {
   return "低";
 }
 
+function realEstateEstimateConfidence(sampleCount, sampleSet) {
+  if (sampleSet.scope !== "同路段") {
+    return sampleSet.streetSampleCount > 0 ? "低（路段樣本不足）" : "低（行政區參考）";
+  }
+  return confidenceForSampleCount(sampleCount);
+}
+
 function normalizeRealEstateKeyword(value) {
   return String(value || "")
     .trim()
@@ -1649,7 +1656,7 @@ async function fetchRealEstateReferenceEstimate({ city, district, buildingAreaPi
     sampleCount: estimateSamples.length,
     period,
     medianUnitPricePerPing,
-    confidence: confidenceForSampleCount(estimateSamples.length),
+    confidence: realEstateEstimateConfidence(estimateSamples.length, sampleSet),
     scope: sampleSet.scope,
     street: sampleSet.usedStreet,
     districtSampleCount: sampleSet.districtSampleCount,
@@ -1680,7 +1687,11 @@ function renderRealEstateEstimateStatus(estimate) {
   ]
     .filter(Boolean)
     .join("；");
-  return `參考估值 ${formatMoney(estimate.amount)}；${scopeDetail} ${fallback}${sampleDetail} ${parkingDetail ? `${parkingDetail}。` : ""}信心 ${estimate.confidence}。未依社區、屋齡、樓層、裝潢修正；不代表即時成交價或鑑價結果。`;
+  const guideHint =
+    estimate.scope === "同路段"
+      ? "若你掌握近期成交價、銀行鑑價或社區行情，仍建議以手動估值為準。"
+      : "目前屬行政區保守參考，較適合當資產盤點下限；若你掌握近期成交價、銀行鑑價或社區行情，建議直接手動輸入該金額。";
+  return `參考估值 ${formatMoney(estimate.amount)}；${scopeDetail} ${fallback}${sampleDetail} ${parkingDetail ? `${parkingDetail}。` : ""}信心 ${estimate.confidence}。未依社區、屋齡、樓層、裝潢修正；不代表即時成交價或鑑價結果。${guideHint}`;
 }
 
 async function fetchRealEstateEstimate() {
