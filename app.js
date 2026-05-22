@@ -412,10 +412,6 @@ function renderAllocation() {
   const total = assets.reduce((sum, entry) => sum + Number(entry.amount), 0);
   const totalLiabilities = liabilities.reduce((sum, entry) => sum + Number(entry.amount), 0);
   const totalLimits = limits.reduce((sum, entry) => sum + Number(entry.amount), 0);
-  const grouped = assets.reduce((map, entry) => {
-    map.set(entry.category, (map.get(entry.category) || 0) + Number(entry.amount));
-    return map;
-  }, new Map());
   const maxTypeAmount = Math.max(total, totalLiabilities, totalLimits, 1);
 
   els.limitDisclosure.hidden = true;
@@ -445,32 +441,48 @@ function renderAllocation() {
       `;
     })
     .join("");
-  const assetMix = total
-    ? Array.from(grouped.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([category, amount]) => {
-      const percent = Math.round((amount / total) * 100);
-      return `
-        <div class="allocation-row">
-          <div class="allocation-top">
-            <span>${category}</span>
-            <span>${formatMoney(amount)} · ${percent}%</span>
-          </div>
-          <div class="bar"><span style="width: ${percent}%"></span></div>
-        </div>
-      `;
-    })
-      .join("")
-    : `<div class="allocation-empty-note">尚未建立資產項目。</div>`;
+  const detailSections = [
+    renderAllocationSection("資產分類", assets, total, "asset", false),
+    renderAllocationSection("負債分類", liabilities, totalLiabilities, "liability", true),
+    renderAllocationSection("額度分類", limits, totalLimits, "limit", false),
+  ].filter(Boolean);
 
   els.allocationList.innerHTML = `
     <div class="allocation-section">
       <div class="allocation-section-label">三大類</div>
       ${typeOverview}
     </div>
+    ${detailSections.join("")}
+  `;
+}
+
+function renderAllocationSection(label, entries, total, className, signed) {
+  if (!entries.length || total <= 0) return "";
+  const grouped = entries.reduce((map, entry) => {
+    map.set(entry.category, (map.get(entry.category) || 0) + Number(entry.amount));
+    return map;
+  }, new Map());
+
+  const rows = Array.from(grouped.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, amount]) => {
+      const percent = Math.round((amount / total) * 100);
+      return `
+        <div class="allocation-row allocation-row-${className}">
+          <div class="allocation-top">
+            <span>${category}</span>
+            <span>${signed && amount > 0 ? "-" : ""}${formatMoney(amount)} · ${percent}%</span>
+          </div>
+          <div class="bar"><span style="width: ${percent}%"></span></div>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
     <div class="allocation-section">
-      <div class="allocation-section-label">資產分類</div>
-      ${assetMix}
+      <div class="allocation-section-label">${label}</div>
+      ${rows}
     </div>
   `;
 }
