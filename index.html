@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=42" />
+    <link rel="stylesheet" href="./styles.css?v=43" />
   </head>
   <body>
     <div class="app-shell">
@@ -24,21 +24,21 @@
           <button class="icon-button" id="installButton" type="button" title="加入主畫面" hidden>
             <span aria-hidden="true">+</span>
           </button>
-          <button class="icon-button labeled" id="exportButton" type="button" title="匯出備份">
+          <button class="icon-button labeled" id="exportButton" type="button" title="匯出加密備份">
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <path d="M5 13v6h14v-6" />
               <path d="M12 15V4" />
               <path d="m7 9 5-5 5 5" />
             </svg>
-            <b>匯出備份</b>
+            <b>匯出加密</b>
           </button>
-          <label class="icon-button labeled" title="匯入備份">
+          <label class="icon-button labeled" title="匯入加密備份">
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <path d="M5 13v6h14v-6" />
               <path d="M12 4v11" />
               <path d="m7 10 5 5 5-5" />
             </svg>
-            <b>匯入備份</b>
+            <b>匯入加密</b>
             <input id="importInput" type="file" accept="application/json" hidden />
           </label>
         </div>
@@ -228,8 +228,8 @@
         <section id="backupPanel" class="panel backup-panel" aria-label="備份狀態">
           <div class="backup-copy">
             <h2>備份狀態</h2>
-            <p id="backupStatusText">尚未匯出備份。</p>
-            <p id="backupImportText" class="backup-muted">尚未匯入備份檔。</p>
+            <p id="backupStatusText">尚未匯出加密備份。</p>
+            <p id="backupImportText" class="backup-muted">尚未匯入加密備份檔。</p>
           </div>
           <div class="backup-actions">
             <div id="backupBadge" class="backup-badge warning">建議備份</div>
@@ -261,8 +261,8 @@
                 <span>股票會用所選月份最後交易日收盤價重算；非股票項目使用目前畫面金額。</span>
               </li>
               <li>
-                <strong>匯出備份</strong>
-                <span>資料只存在這台裝置的瀏覽器裡，月結後順手匯出 JSON 備份最安心。</span>
+                <strong>匯出加密備份</strong>
+                <span>資料只存在這台裝置的瀏覽器裡，月結後順手匯出加密備份；請記住密碼，忘記密碼無法還原。</span>
               </li>
             </ol>
 
@@ -282,6 +282,6 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=42" type="module"></script>
+    <script src="./app.js?v=43" type="module"></script>
   </body>
 </html>

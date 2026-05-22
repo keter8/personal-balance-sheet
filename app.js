@@ -8,7 +8,10 @@ const MOBILE_TAB_STORAGE_KEY = "finance-ledger-mobile-tab";
 const BACKUP_STORAGE_KEY = "finance-ledger-last-backup-at";
 const BACKUP_NEEDED_STORAGE_KEY = "finance-ledger-backup-needed";
 const IMPORTED_BACKUP_STORAGE_KEY = "finance-ledger-last-imported-exported-at";
-const BACKUP_SCHEMA_VERSION = 1;
+const BACKUP_SCHEMA_VERSION = 2;
+const BACKUP_KDF = "PBKDF2-SHA256";
+const BACKUP_CIPHER = "AES-GCM";
+const BACKUP_KDF_ITERATIONS = 210000;
 const BACKUP_OVERDUE_DAYS = 30;
 const ENTRY_STALE_DAYS = 30;
 const STOCK_QUOTE_STALE_DAYS = 7;
@@ -289,16 +292,16 @@ function renderBackupStatus() {
   const overdue = !lastBackupAt || elapsedDays > BACKUP_OVERDUE_DAYS;
 
   if (!hasLocalData && !lastBackupAt) {
-    els.backupStatusText.textContent = "目前沒有本機資料。先新增第一筆資料，或用「匯入備份」恢復資料後，再匯出 JSON 備份。";
+    els.backupStatusText.textContent = "目前沒有本機資料。先新增第一筆資料，或用「匯入加密」恢復資料後，再匯出加密備份。";
   } else if (!lastBackupAt) {
-    els.backupStatusText.textContent = "尚未匯出備份。月結後建議立刻匯出 JSON，存到 iCloud Drive、Google Drive 或 Dropbox。";
+    els.backupStatusText.textContent = "尚未匯出加密備份。月結後建議立刻匯出；請記住密碼，忘記密碼無法還原。";
   } else {
-    els.backupStatusText.textContent = `上次匯出：${formatDateTime(lastBackupAt)}${elapsedDays > 0 ? `，約 ${elapsedDays} 天前` : "，今天"}`;
+    els.backupStatusText.textContent = `上次匯出加密備份：${formatDateTime(lastBackupAt)}${elapsedDays > 0 ? `，約 ${elapsedDays} 天前` : "，今天"}；請妥善保存密碼。`;
   }
 
   els.backupImportText.textContent = lastImportedExportedAt
     ? `最近匯入的備份匯出時間：${formatDateTime(lastImportedExportedAt)}`
-    : "尚未匯入備份檔。";
+    : "尚未匯入加密備份檔。";
 
   const idle = !hasLocalData && !lastBackupAt;
   els.backupPanel.classList.toggle("idle", idle);
@@ -319,7 +322,7 @@ function getBackupHealthStatus() {
       status: "danger",
       title: "備份逾期",
       description: lastBackupAt ? `上次匯出已超過 ${BACKUP_OVERDUE_DAYS} 天。` : "這台裝置尚未匯出過備份。",
-      actionHint: "匯出 JSON 到 iCloud Drive、Google Drive 或 Dropbox。",
+      actionHint: "匯出加密備份到 iCloud Drive、Google Drive 或 Dropbox。",
     };
   }
   if (backupNeeded) {
@@ -327,7 +330,7 @@ function getBackupHealthStatus() {
       status: "warning",
       title: "月結後待備份",
       description: "本機資料已更新，但還沒有匯出最新備份。",
-      actionHint: "完成月結或資料調整後，順手匯出備份。",
+      actionHint: "完成月結或資料調整後，順手匯出加密備份。",
     };
   }
   return null;
@@ -438,7 +441,7 @@ function markBackupCompleted(timestamp) {
 }
 
 async function clearLocalData() {
-  const ok = confirm("這會刪除這台裝置瀏覽器裡的所有資產、負債、額度與月結紀錄。\n\n不會影響 GitHub、其他裝置，或你已經匯出的 JSON 備份。\n\n確定要繼續嗎？");
+  const ok = confirm("這會刪除這台裝置瀏覽器裡的所有資產、負債、額度與月結紀錄。\n\n不會影響 GitHub、其他裝置，或你已經匯出的加密備份。\n\n確定要繼續嗎？");
   if (!ok) return;
 
   const typed = prompt("請輸入 DELETE 確認清除本機資料。");
@@ -1326,7 +1329,7 @@ async function createSnapshot() {
   els.snapshotButton.textContent = originalText;
   markBackupNeeded();
   await loadData();
-  showToast(totals.stockQuoteFailed ? `已儲存 ${month} 月結，建議匯出備份` : `月結已建立，建議現在匯出備份`);
+  showToast(totals.stockQuoteFailed ? `已儲存 ${month} 月結，建議匯出加密備份` : `月結已建立，建議現在匯出加密備份`);
 }
 
 async function refreshAllStockQuotes() {
@@ -1381,34 +1384,152 @@ function downloadJson(filename, payload) {
   URL.revokeObjectURL(url);
 }
 
-function exportData() {
-  const exportedAt = new Date().toISOString();
-  downloadJson(`finance-ledger-${timestampForFilename(new Date(exportedAt))}.json`, {
+function stringToBytes(value) {
+  return new TextEncoder().encode(value);
+}
+
+function bytesToString(value) {
+  return new TextDecoder().decode(value);
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+}
+
+function base64ToBytes(value) {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+async function deriveBackupKey(password, salt) {
+  const keyMaterial = await crypto.subtle.importKey("raw", stringToBytes(password), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: BACKUP_KDF_ITERATIONS,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function encryptBackupPayload(payload, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveBackupKey(password, salt);
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, stringToBytes(JSON.stringify(payload)));
+  return {
+    app: "finance-ledger",
+    schemaVersion: BACKUP_SCHEMA_VERSION,
+    encrypted: true,
+    kdf: BACKUP_KDF,
+    iterations: BACKUP_KDF_ITERATIONS,
+    cipher: BACKUP_CIPHER,
+    salt: bytesToBase64(salt),
+    iv: bytesToBase64(iv),
+    ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
+  };
+}
+
+async function decryptBackupFile(data, password) {
+  if (
+    data?.app !== "finance-ledger" ||
+    data?.schemaVersion !== BACKUP_SCHEMA_VERSION ||
+    data?.encrypted !== true ||
+    data?.kdf !== BACKUP_KDF ||
+    data?.iterations !== BACKUP_KDF_ITERATIONS ||
+    data?.cipher !== BACKUP_CIPHER ||
+    !data?.salt ||
+    !data?.iv ||
+    !data?.ciphertext
+  ) {
+    throw new Error("Unsupported encrypted backup");
+  }
+
+  const salt = base64ToBytes(data.salt);
+  const iv = base64ToBytes(data.iv);
+  const ciphertext = base64ToBytes(data.ciphertext);
+  const key = await deriveBackupKey(password, salt);
+  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+  return JSON.parse(bytesToString(plaintext));
+}
+
+function buildBackupPayload(exportedAt) {
+  return {
     app: "finance-ledger",
     schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt,
     localUpdatedAt: getLocalUpdatedAt(),
     entries: state.entries,
     snapshots: state.snapshots,
-  });
+  };
+}
+
+function promptBackupPassword(message) {
+  const password = prompt(message);
+  if (password === null) return null;
+  if (!password.trim()) {
+    showToast("備份密碼不可空白");
+    return null;
+  }
+  return password;
+}
+
+async function exportData() {
+  const exportedAt = new Date().toISOString();
+  const password = promptBackupPassword("請輸入加密備份密碼。\n\n請記住密碼，忘記密碼無法還原備份。");
+  if (password === null) return;
+  const confirmedPassword = promptBackupPassword("請再輸入一次加密備份密碼。");
+  if (confirmedPassword === null) return;
+  if (password !== confirmedPassword) {
+    showToast("兩次密碼不一致，已取消匯出");
+    return;
+  }
+
+  const encryptedBackup = await encryptBackupPayload(buildBackupPayload(exportedAt), password);
+  downloadJson(`finance-ledger-${timestampForFilename(new Date(exportedAt))}.encrypted.json`, encryptedBackup);
   markBackupCompleted(exportedAt);
-  showToast("已匯出備份");
+  showToast("已匯出加密備份");
 }
 
 async function importData(file) {
   const text = await file.text();
-  const data = JSON.parse(text);
+  const encryptedData = JSON.parse(text);
+  if (encryptedData?.encrypted !== true) {
+    showToast("此版本只接受加密備份，請使用加密備份檔");
+    return false;
+  }
+
+  const localUpdatedAt = getLocalUpdatedAt();
+  if (hasUnbackedLocalChanges()) {
+    showToast("目前本機資料尚未備份，請先匯出加密備份後再匯入");
+    return false;
+  }
+
+  const password = promptBackupPassword("請輸入加密備份密碼。");
+  if (password === null) return false;
+
+  let data;
+  try {
+    data = await decryptBackupFile(encryptedData, password);
+  } catch {
+    showToast("解密失敗，請確認備份檔與密碼");
+    return false;
+  }
+
   if (!Array.isArray(data.entries) || !Array.isArray(data.snapshots)) {
     throw new Error("Invalid backup");
   }
 
   const exportedAt = data.exportedAt || null;
-  const localUpdatedAt = getLocalUpdatedAt();
-  if (hasUnbackedLocalChanges()) {
-    showToast("目前本機資料尚未備份，請先匯出備份後再匯入");
-    return false;
-  }
-
   const ok = confirm(
     [
       "匯入備份會覆蓋目前這台裝置的所有本機資料。",
@@ -1422,7 +1543,7 @@ async function importData(file) {
       `匯出時間：${formatDateTime(exportedAt)}`,
       `項目數：${data.entries.length}`,
       `月結數：${data.snapshots.length}`,
-      `備份版本：${data.schemaVersion || "舊版"}`,
+      `備份版本：${encryptedData.schemaVersion}`,
       "",
       "確定要繼續匯入嗎？",
     ].join("\n")
@@ -1438,7 +1559,7 @@ async function importData(file) {
   }
   localStorage.setItem(BACKUP_NEEDED_STORAGE_KEY, "true");
   await loadData();
-  showToast("已匯入備份，建議再匯出一次備份");
+  showToast("已匯入加密備份，建議再匯出一次加密備份");
   return true;
 }
 
@@ -1479,7 +1600,13 @@ function bindEvents() {
     await loadData();
     showToast("已清除快照");
   });
-  els.exportButton.addEventListener("click", exportData);
+  els.exportButton.addEventListener("click", async () => {
+    try {
+      await exportData();
+    } catch {
+      showToast("加密備份匯出失敗");
+    }
+  });
   els.importInput.addEventListener("change", async () => {
     const file = els.importInput.files?.[0];
     if (!file) return;
