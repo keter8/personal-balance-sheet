@@ -4,6 +4,7 @@ const STORE_ENTRIES = "entries";
 const STORE_SNAPSHOTS = "snapshots";
 const GUIDE_STORAGE_KEY = "finance-ledger-guide-open";
 const ENTRY_FORM_STORAGE_KEY = "finance-ledger-entry-form-open";
+const MOBILE_TAB_STORAGE_KEY = "finance-ledger-mobile-tab";
 const BACKUP_STORAGE_KEY = "finance-ledger-last-backup-at";
 const BACKUP_NEEDED_STORAGE_KEY = "finance-ledger-backup-needed";
 const IMPORTED_BACKUP_STORAGE_KEY = "finance-ledger-last-imported-exported-at";
@@ -19,12 +20,15 @@ const state = {
   entries: [],
   snapshots: [],
   filter: "all",
+  mobileTab: "overview",
   showAllEntries: false,
   showAllSnapshots: false,
   deferredInstallPrompt: null,
 };
 
 const els = {
+  main: $("#appMain"),
+  mobileTabBar: $("#mobileTabBar"),
   form: $("#entryForm"),
   entryId: $("#entryId"),
   entryType: $("#entryType"),
@@ -78,6 +82,7 @@ const els = {
 
 const DESKTOP_ENTRY_PREVIEW_LIMIT = 8;
 const MOBILE_ENTRY_PREVIEW_LIMIT = 4;
+const MOBILE_TABS = new Set(["overview", "data", "monthly"]);
 const SNAPSHOT_PREVIEW_LIMIT = 12;
 
 function openDb() {
@@ -215,6 +220,25 @@ function syncEntryFormDefault() {
   }
 
   setEntryFormOpen(state.entries.length === 0, false);
+}
+
+function getStoredMobileTab() {
+  const value = localStorage.getItem(MOBILE_TAB_STORAGE_KEY);
+  return MOBILE_TABS.has(value) ? value : "overview";
+}
+
+function setMobileTab(tab, persist = true) {
+  const nextTab = MOBILE_TABS.has(tab) ? tab : "overview";
+  state.mobileTab = nextTab;
+  els.main.dataset.mobileTab = nextTab;
+  els.mobileTabBar.querySelectorAll("[data-mobile-tab]").forEach((button) => {
+    const active = button.dataset.mobileTab === nextTab;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-current", active ? "page" : "false");
+  });
+  if (persist) {
+    localStorage.setItem(MOBILE_TAB_STORAGE_KEY, nextTab);
+  }
 }
 
 function formatDateTime(value) {
@@ -698,6 +722,7 @@ function escapeHtml(value) {
 async function loadData() {
   state.entries = (await getAll(STORE_ENTRIES)).map(normalizeEntry);
   state.snapshots = (await getAll(STORE_SNAPSHOTS)).map(normalizeSnapshot);
+  setMobileTab(getStoredMobileTab(), false);
   const storedGuideState = getStoredGuideState();
   if (storedGuideState === null) {
     setGuideOpen(state.entries.length === 0, false);
@@ -753,6 +778,7 @@ async function handleSubmit(event) {
 function editEntry(id) {
   const entry = state.entries.find((item) => item.id === id);
   if (!entry) return;
+  setMobileTab("data");
   setEntryFormOpen(true);
   els.entryId.value = entry.id;
   els.entryType.value = entry.type;
@@ -1138,6 +1164,12 @@ function bindEvents() {
   els.toggleEntryFormButton.addEventListener("click", () => {
     setEntryFormOpen(els.form.hidden);
   });
+  els.mobileTabBar.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-mobile-tab]");
+    if (!button) return;
+    setMobileTab(button.dataset.mobileTab);
+    renderEntries();
+  });
   els.clearFormButton.addEventListener("click", resetForm);
   els.guideToggleButton.addEventListener("click", () => {
     setGuideOpen(els.guideBody.hidden);
@@ -1205,6 +1237,7 @@ function bindEvents() {
     state.showAllSnapshots = !state.showAllSnapshots;
     renderSnapshots();
   });
+  window.addEventListener("resize", renderEntries);
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();

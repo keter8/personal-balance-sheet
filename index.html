@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=35" />
+    <link rel="stylesheet" href="./styles.css?v=36" />
   </head>
   <body>
     <div class="app-shell">
@@ -44,7 +44,13 @@
         </div>
       </header>
 
-      <main>
+      <main id="appMain" data-mobile-tab="overview">
+        <nav id="mobileTabBar" class="mobile-tab-bar" aria-label="手機分頁">
+          <button class="active" type="button" data-mobile-tab="overview">總覽</button>
+          <button type="button" data-mobile-tab="data">資料</button>
+          <button type="button" data-mobile-tab="monthly">月結</button>
+        </nav>
+
         <section class="summary-grid" aria-label="總覽">
           <article class="summary-card primary">
             <span>淨資產</span>
@@ -160,11 +166,6 @@
               </div>
               <div class="panel-actions">
                 <button id="refreshAllQuotesButton" class="text-button" type="button">更新股價</button>
-                <label class="month-picker">
-                  月結月份
-                  <input id="snapshotMonth" type="month" />
-                </label>
-                <button id="snapshotButton" class="text-button" type="button">建立月結</button>
               </div>
             </div>
 
@@ -186,7 +187,7 @@
         </section>
 
         <section class="insights">
-          <article class="panel">
+          <article class="panel allocation-panel">
             <div class="panel-heading">
               <h2>配置總覽</h2>
             </div>
@@ -194,10 +195,17 @@
             <div id="limitDisclosure" class="limit-disclosure" hidden></div>
           </article>
 
-          <article class="panel">
+          <article class="panel snapshot-panel">
             <div class="panel-heading">
               <h2>月結紀錄</h2>
-              <button id="clearSnapshotsButton" class="text-button danger" type="button">清除</button>
+              <div class="panel-actions snapshot-actions">
+                <label class="month-picker">
+                  月結月份
+                  <input id="snapshotMonth" type="month" />
+                </label>
+                <button id="snapshotButton" class="text-button" type="button">建立月結</button>
+                <button id="clearSnapshotsButton" class="text-button danger" type="button">清除</button>
+              </div>
             </div>
             <p class="snapshot-note">股票用所選月份最後交易日收盤價重算；非股票項目使用目前畫面金額；增減額是跟上一筆月結比較。</p>
             <div id="trendChart" class="trend-chart" aria-label="月結趨勢圖"></div>
@@ -263,6 +271,6 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=35" type="module"></script>
+    <script src="./app.js?v=36" type="module"></script>
   </body>
 </html>
