@@ -570,10 +570,22 @@ h3 {
   display: none;
 }
 
+.real-estate-link-grid {
+  grid-template-columns: 1fr;
+}
+
 .estimate-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.estimate-status {
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 250, 241, 0.72);
+  font-size: 11px;
+  font-weight: 650;
 }
 
 .quote-row {

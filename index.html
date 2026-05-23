@@ -10,7 +10,7 @@
     <title>財務簿</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=54" />
+    <link rel="stylesheet" href="./styles.css?v=55" />
   </head>
   <body>
     <div class="app-shell">
@@ -141,7 +141,7 @@
               </div>
 
               <div id="realEstateFields" class="real-estate-fields" hidden>
-                <div class="form-grid">
+                <div class="form-grid real-estate-location-grid">
                   <label>
                     縣市
                     <select id="realEstateCity"></select>
@@ -153,11 +153,10 @@
                   </label>
                 </div>
 
-                <div class="form-grid">
+                <div class="form-grid real-estate-area-grid">
                   <label>
                     建物坪數（不含車位）
                     <input id="realEstateArea" type="number" inputmode="decimal" min="0" step="0.01" placeholder="30" />
-                    <small class="form-hint">建議填不含車位的純建物坪數；線上估值會以純房屋單價估算。</small>
                   </label>
 
                   <label>
@@ -166,7 +165,9 @@
                   </label>
                 </div>
 
-                <div class="form-grid">
+                <p class="form-hint">建議填不含車位的純建物坪數；線上估值會以純房屋單價估算。</p>
+
+                <div class="form-grid real-estate-link-grid">
                   <label>
                     連動房貸/已動用
                     <select id="realEstateMortgage"></select>
@@ -178,7 +179,7 @@
                   <button id="applyRealEstateEstimateButton" class="text-button" type="button" disabled>套用參考估值</button>
                 </div>
 
-                <p id="realEstateEstimateStatus" class="quote-status">此為不含車位的純房屋參考估值，不代表即時成交價或鑑價結果；可填路段讓估值優先使用同路段樣本，房產估值需由你確認後才會套用。</p>
+                <p id="realEstateEstimateStatus" class="quote-status estimate-status">此為不含車位的純房屋參考估值，不代表即時成交價或鑑價結果；可填路段讓估值優先使用同路段樣本，房產估值需由你確認後才會套用。</p>
               </div>
 
               <label>
@@ -323,6 +324,6 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=54" type="module"></script>
+    <script src="./app.js?v=55" type="module"></script>
   </body>
 </html>
