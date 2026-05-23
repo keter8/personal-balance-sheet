@@ -1,5 +1,5 @@
-const CACHE_NAME = "finance-ledger-v53";
-const ASSETS = ["./", "./index.html", "./styles.css?v=53", "./app.js?v=53", "./manifest.webmanifest", "./icons/icon.svg"];
+const CACHE_NAME = "finance-ledger-v54";
+const ASSETS = ["./", "./index.html", "./styles.css?v=54", "./app.js?v=54", "./manifest.webmanifest", "./icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));

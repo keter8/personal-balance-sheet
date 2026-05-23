@@ -610,7 +610,7 @@ function clearRealEstateEstimate() {
   delete els.applyRealEstateEstimateButton.dataset.comparableSampleCount;
   delete els.applyRealEstateEstimateButton.dataset.usedComparableOnly;
   els.realEstateEstimateStatus.textContent =
-    "此為參考估值，不代表即時成交價或鑑價結果；可填路段讓估值優先使用同路段樣本，房產估值需由你確認後才會套用。";
+    "此為不含車位的純房屋參考估值，不代表即時成交價或鑑價結果；可填路段讓估值優先使用同路段樣本，房產估值需由你確認後才會套用。";
 }
 
 function setRealEstateEstimateDataset(estimate) {
@@ -782,7 +782,7 @@ function renderRealEstateDetails(entry) {
       <span>連動負債 ${mortgage ? `-${formatMoney(mortgageAmount)}` : "未連動"}</span>
       <span>房產淨值 ${formatMoney(equity)}</span>
       <span>${escapeHtml(entry.realEstate.city || "")}${escapeHtml(entry.realEstate.district || "")}${entry.realEstate.street ? ` · ${escapeHtml(entry.realEstate.street)}` : ""} · ${formatPrice(entry.realEstate.buildingAreaPing)} 坪 · ${method} · 信心 ${confidence}</span>
-      ${estimate ? `<span>參考估值 ${formatMoney(estimate.amount)} · ${escapeHtml(estimate.scope || "行政區")} · ${estimate.sampleCount || 0} 筆 · 信心 ${escapeHtml(estimate.confidence || "低")}</span>` : ""}
+      ${estimate ? `<span>參考估值 ${formatMoney(estimate.amount)}（不含車位純房屋） · ${escapeHtml(estimate.scope || "行政區")} · ${estimate.sampleCount || 0} 筆 · 信心 ${escapeHtml(estimate.confidence || "低")}</span>` : ""}
     </div>
   `;
 }
@@ -1689,9 +1689,9 @@ function renderRealEstateEstimateStatus(estimate) {
     .join("；");
   const guideHint =
     estimate.scope === "同路段"
-      ? "若你掌握近期成交價、銀行鑑價或社區行情，仍建議以手動估值為準。"
-      : "目前屬行政區保守參考，較適合當資產盤點下限；若你掌握近期成交價、銀行鑑價或社區行情，建議直接手動輸入該金額。";
-  return `參考估值 ${formatMoney(estimate.amount)}；${scopeDetail} ${fallback}${sampleDetail} ${parkingDetail ? `${parkingDetail}。` : ""}信心 ${estimate.confidence}。未依社區、屋齡、樓層、裝潢修正；不代表即時成交價或鑑價結果。${guideHint}`;
+      ? "若房產含車位，套用後請手動加上車位價值；若你掌握近期成交價、銀行鑑價或社區行情，仍建議以手動估值為準。"
+      : "目前屬行政區保守參考，較適合當資產盤點下限；若房產含車位，套用後請手動加上車位價值；若你掌握近期成交價、銀行鑑價或社區行情，建議直接手動輸入該金額。";
+  return `參考估值 ${formatMoney(estimate.amount)}（不含車位純房屋估值）；${scopeDetail} ${fallback}${sampleDetail} ${parkingDetail ? `${parkingDetail}。` : ""}信心 ${estimate.confidence}。未依社區、屋齡、樓層、裝潢修正；不代表即時成交價或鑑價結果。${guideHint}`;
 }
 
 async function fetchRealEstateEstimate() {
