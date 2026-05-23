@@ -570,6 +570,10 @@ h3 {
   display: none;
 }
 
+.real-estate-fields .form-grid {
+  grid-template-columns: 1fr;
+}
+
 .real-estate-link-grid {
   grid-template-columns: 1fr;
 }
